@@ -21,14 +21,36 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: process.env.NEXT_PUBLIC_APP_URL
+    ? new URL(process.env.NEXT_PUBLIC_APP_URL)
+    : undefined,
   title: {
-    default: "wacrm",
-    template: "%s — wacrm",
+    default: "Aunivo — Automação comercial com IA para WhatsApp",
+    template: "%s — Aunivo",
   },
-  description: "Self-hostable CRM template for WhatsApp.",
-  robots: {
-    index: false,
-    follow: false,
+  description:
+    "Automatize o atendimento, qualifique leads e organize suas vendas pelo WhatsApp com inteligência artificial.",
+  keywords: [
+    "automação WhatsApp",
+    "CRM",
+    "inteligência artificial",
+    "atendimento",
+    "vendas",
+  ],
+  applicationName: "Aunivo",
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: "Aunivo",
+    title: "Aunivo — Automação comercial com IA para WhatsApp",
+    description:
+      "Automatize o atendimento, qualifique leads e organize suas vendas pelo WhatsApp com inteligência artificial.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Aunivo — Automação comercial com IA para WhatsApp",
+    description:
+      "Automatize o atendimento, qualifique leads e organize suas vendas pelo WhatsApp com inteligência artificial.",
   },
   icons: {
     icon: [{ url: "/icon" }],

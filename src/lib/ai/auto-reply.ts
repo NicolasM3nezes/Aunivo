@@ -9,6 +9,7 @@ import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
 import { engineSendText } from '@/lib/flows/meta-send'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { assertFeature, assertWithinLimit, getMonthlyUsage, incrementMonthlyUsage } from '@/lib/billing/entitlements'
 
 interface DispatchArgs {
   /** Tenancy key — drives config, contact, and whatsapp_config lookups. */
@@ -46,6 +47,8 @@ export async function dispatchInboundToAiReply(
 
   try {
     const db = supabaseAdmin()
+    await assertFeature(accountId, 'ai_auto_reply', db)
+    await assertWithinLimit(accountId, 'ai_replies_monthly', await getMonthlyUsage(accountId, 'ai_replies', db), 1, db)
 
     const config = await loadAiConfig(db, accountId)
     if (!config || !config.autoReplyEnabled) return
@@ -117,6 +120,7 @@ export async function dispatchInboundToAiReply(
       systemPrompt,
       messages,
     })
+    await incrementMonthlyUsage(accountId, 'ai_replies', 1, `auto:${conversationId}:${messages.length}`)
 
     // Record token spend on the account's BYO key. Fire-and-forget so it
     // never adds latency to the customer-facing send: `logAiUsage`

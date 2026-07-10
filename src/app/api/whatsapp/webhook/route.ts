@@ -1,5 +1,6 @@
 import { NextResponse, after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { notifyBillingOwner } from '@/lib/billing/notifications'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
 import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
 import { normalizePhone } from '@/lib/whatsapp/phone-utils'
@@ -580,7 +581,12 @@ async function processMessage(
     senderPhone,
     contactName
   )
-  if (!contactOutcome) return
+  if (!contactOutcome) {
+    const db = supabaseAdmin()
+    const { data: staged } = await db.from('billing_blocked_inbound').upsert({ account_id: accountId, provider_message_id: message.id, sender_phone: senderPhone, contact_name: contactName || null, message_type: message.type, reason: 'contacts_limit' }, { onConflict: 'provider_message_id', ignoreDuplicates: true }).select('id').maybeSingle()
+    if (staged) await notifyBillingOwner(db, accountId, 'billing_limit_reached', 'Limite de contatos atingido', 'Uma nova conversa foi preservada na fila de entrada bloqueada. Faça upgrade para criar o contato e continuar o atendimento.')
+    return
+  }
   const contactRecord = contactOutcome.contact
 
   // Find or create conversation

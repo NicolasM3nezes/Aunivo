@@ -1,19 +1,38 @@
-import { getRequestConfig } from 'next-intl/server';
+import { getRequestConfig } from "next-intl/server";
+
+const supportedLocales = ["pt-BR", "en"] as const;
+
+type SupportedLocale = (typeof supportedLocales)[number];
+
+function isSupportedLocale(locale: string): locale is SupportedLocale {
+  return supportedLocales.includes(locale as SupportedLocale);
+}
 
 export default getRequestConfig(async () => {
-  // Read the locale from the environment, defaulting to 'en'
-  const locale = process.env.NEXT_PUBLIC_APP_LOCALE || 'en';
+  const environmentLocale =
+    process.env.NEXT_PUBLIC_APP_LOCALE ?? "pt-BR";
 
-  let messages;
+  const locale: SupportedLocale = isSupportedLocale(environmentLocale)
+    ? environmentLocale
+    : "pt-BR";
+
   try {
-    messages = (await import(`../../messages/${locale}.json`)).default;
-  } catch (error) {
-    // Fallback to English if the dictionary for the requested locale doesn't exist yet
-    messages = (await import(`../../messages/en.json`)).default;
-  }
+    const messages = (
+      await import(`../../messages/${locale}.json`)
+    ).default;
 
-  return {
-    locale,
-    messages
-  };
+    return {
+      locale,
+      messages,
+    };
+  } catch {
+    const messages = (
+      await import("../../messages/en.json")
+    ).default;
+
+    return {
+      locale: "en",
+      messages,
+    };
+  }
 });

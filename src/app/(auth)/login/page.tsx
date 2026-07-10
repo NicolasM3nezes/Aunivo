@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MessageSquare, UsersRound } from "lucide-react";
+import { Sparkles, UsersRound } from "lucide-react";
 
 // `useSearchParams` opts the component out of static prerendering
 // unless it sits under a Suspense boundary. We split the form into
@@ -76,9 +76,10 @@ function LoginPageInner() {
             {inviteToken ? (
               <UsersRound className="h-6 w-6 text-primary" />
             ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
+              <Sparkles className="h-6 w-6 text-primary" />
             )}
           </div>
+          {!inviteToken && <p className="text-sm font-semibold text-primary">Aunivo</p>}
           <CardTitle className="text-xl text-foreground">
             {inviteToken ? t('titleAccept') : t('titleWelcome')}
           </CardTitle>
@@ -148,8 +149,8 @@ function LoginPageInner() {
             <Link
               href={
                 inviteToken
-                  ? `/signup?invite=${encodeURIComponent(inviteToken)}`
-                  : "/signup"
+                  ? `/cadastro?invite=${encodeURIComponent(inviteToken)}`
+                  : "/cadastro"
               }
               className="text-primary hover:text-primary/80"
             >

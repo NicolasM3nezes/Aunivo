@@ -51,6 +51,7 @@ export async function middleware(request: NextRequest) {
   if (user && (
     request.nextUrl.pathname === '/login' ||
     request.nextUrl.pathname === '/signup' ||
+    request.nextUrl.pathname === '/cadastro' ||
     request.nextUrl.pathname === '/forgot-password'
   )) {
     const url = request.nextUrl.clone()
@@ -58,7 +59,8 @@ export async function middleware(request: NextRequest) {
     if (
       inviteToken &&
       (request.nextUrl.pathname === '/login' ||
-        request.nextUrl.pathname === '/signup')
+        request.nextUrl.pathname === '/signup' ||
+        request.nextUrl.pathname === '/cadastro')
     ) {
       url.pathname = `/join/${encodeURIComponent(inviteToken)}`
       url.search = ''
@@ -70,7 +72,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings']
+  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings', '/configuracoes', '/assinatura']
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

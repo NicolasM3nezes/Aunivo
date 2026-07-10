@@ -10,6 +10,9 @@ import { __resetRateLimitForTests, RATE_LIMITS } from "@/lib/rate-limit";
 vi.mock("@/lib/flows/admin-client", () => ({
   supabaseAdmin: () => ({ __isMockAdminClient: true }),
 }));
+vi.mock("@/lib/billing/entitlements", () => ({
+  assertFeature: vi.fn().mockResolvedValue(undefined),
+}));
 
 // Mock the store so we control which row a hash resolves to.
 const findActiveKeyByHash = vi.fn<(hash: string) => Promise<ApiKeyRow | null>>();

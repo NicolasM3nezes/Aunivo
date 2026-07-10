@@ -10,6 +10,7 @@ import { latestUserMessage } from '@/lib/ai/query'
 import { logAiUsage } from '@/lib/ai/usage'
 import { supabaseAdmin } from '@/lib/ai/admin-client'
 import { AiError } from '@/lib/ai/types'
+import { assertFeature, assertWithinLimit, getMonthlyUsage, incrementMonthlyUsage } from '@/lib/billing/entitlements'
 
 /**
  * POST /api/ai/draft  (agent+)
@@ -23,6 +24,8 @@ import { AiError } from '@/lib/ai/types'
 export async function POST(request: Request) {
   try {
     const { supabase, accountId, userId } = await requireRole('agent')
+    const billing = await assertFeature(accountId, 'ai_drafts')
+    await assertWithinLimit(accountId, 'ai_replies_monthly', await getMonthlyUsage(accountId, 'ai_replies'))
 
     const userLimit = checkRateLimit(`ai-draft:${userId}`, RATE_LIMITS.aiDraft)
     if (!userLimit.success) return rateLimitResponse(userLimit)
@@ -91,12 +94,9 @@ export async function POST(request: Request) {
 
     // Ground the draft in the account's knowledge base (best-effort —
     // returns [] when there's no KB or retrieval fails).
-    const knowledge = await retrieveKnowledge(
-      supabase,
-      accountId,
-      config,
-      latestUserMessage(messages),
-    )
+    const knowledge = billing.features.knowledge_base
+      ? await retrieveKnowledge(supabase, accountId, config, latestUserMessage(messages))
+      : []
 
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
@@ -105,6 +105,7 @@ export async function POST(request: Request) {
     })
 
     const { text, usage } = await generateReply({ config, systemPrompt, messages })
+    await incrementMonthlyUsage(accountId, 'ai_replies', 1)
 
     // Record spend on the account's BYO key. Best-effort + via the
     // service role (the log has no `authenticated` INSERT policy). This

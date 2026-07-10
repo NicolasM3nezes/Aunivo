@@ -40,6 +40,7 @@ import {
   engineSendText,
 } from "./meta-send";
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
+import { assertFeature } from "@/lib/billing/entitlements";
 import {
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
@@ -831,6 +832,7 @@ export async function dispatchInboundToFlows(
 ): Promise<DispatchInboundResult> {
   const db = supabaseAdmin();
   try {
+    await assertFeature(input.accountId, "flows", db);
     const activeRun = await loadActiveRunForContact(
       db,
       input.accountId,

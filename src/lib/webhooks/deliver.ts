@@ -26,6 +26,7 @@ import { decrypt } from '@/lib/whatsapp/encryption';
 import { buildSignatureHeader } from '@/lib/webhooks/sign';
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
 import type { WebhookEvent } from '@/lib/webhooks/events';
+import { assertFeature } from '@/lib/billing/entitlements';
 
 /** Per-endpoint HTTP timeout. Kept short — this runs in `after()`. */
 export const DELIVERY_TIMEOUT_MS = 5000;
@@ -50,6 +51,7 @@ export async function dispatchWebhookEvent(
   data: unknown
 ): Promise<void> {
   try {
+    await assertFeature(accountId, 'external_webhooks', db);
     const { data: rows, error } = await db
       .from('webhook_endpoints')
       .select('id, url, secret')

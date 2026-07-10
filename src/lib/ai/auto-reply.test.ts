@@ -22,6 +22,12 @@ vi.mock('./context', () => ({ buildConversationContext: h.buildConversationConte
 vi.mock('./knowledge', () => ({ retrieveKnowledge: h.retrieveKnowledge }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
 vi.mock('@/lib/flows/meta-send', () => ({ engineSendText: h.engineSendText }))
+vi.mock('@/lib/billing/entitlements', () => ({
+  assertFeature: vi.fn().mockResolvedValue(undefined),
+  assertWithinLimit: vi.fn().mockResolvedValue(undefined),
+  getMonthlyUsage: vi.fn().mockResolvedValue(0),
+  incrementMonthlyUsage: vi.fn().mockResolvedValue(undefined),
+}))
 vi.mock('./admin-client', () => ({
   supabaseAdmin: () => ({
     from: (table: string) => {

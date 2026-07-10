@@ -1,8 +1,7 @@
-# wacrm — CRM Template for WhatsApp
+# Aunivo — Automação comercial com IA para WhatsApp
 
-> Self-hostable CRM template for WhatsApp® — shared inbox, contacts,
-> sales pipelines, broadcasts, and no-code automations. Fork it, brand
-> it, host it.
+> Plataforma SaaS para automatizar atendimento, qualificar leads e
+> organizar vendas pelo WhatsApp com inteligência artificial.
 
 <p align="center">
   <a href="https://www.hostinger.com/web-apps-hosting">
@@ -16,12 +15,12 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ecf8e?logo=supabase)](https://supabase.com)
 [![Stars](https://img.shields.io/github/stars/ArnasDon/wacrm?style=social)](https://github.com/ArnasDon/wacrm/stargazers)
 
-The marketing site and self-host docs live in a separate repo:
+O Aunivo foi construído a partir da base open source WaCRM. A documentação
+e o repositório original permanecem disponíveis em:
 [ArnasDon/wacrm-site](https://github.com/ArnasDon/wacrm-site)
-([wacrm.tech](https://wacrm.tech)). This repo is the product —
-clone or fork it to run your own CRM.
+([wacrm.tech](https://wacrm.tech)).
 
-## What you get out of the box
+## O que o Aunivo oferece
 
 - **Shared inbox** on the official WhatsApp Business API — multiple
   agents working one number, per-conversation assignment, status, and
@@ -47,6 +46,10 @@ clone or fork it to run your own CRM.
   is account-scoped, so one shared inbox can be staffed by a whole
   team. Solo use stays single-user with zero setup.
 - **Account management** — email, password, avatar, global sign-out.
+- **Account-level subscriptions** — Stripe Checkout and Customer Portal,
+  Free/Pro/Business entitlements, server-enforced limits, grace periods,
+  usage metering, and signed idempotent webhooks. See
+  [docs/billing.md](./docs/billing.md).
 - **Public REST API** (`/api/v1`) with scoped, revocable API keys —
   build your own automations on top of your CRM. See
   [docs/public-api.md](./docs/public-api.md).

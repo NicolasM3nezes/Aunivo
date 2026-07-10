@@ -10,6 +10,9 @@ vi.mock('@/lib/whatsapp/encryption', () => ({
 vi.mock('@/lib/webhooks/ssrf', () => ({
   isDeliverableUrl: vi.fn(async () => true),
 }));
+vi.mock('@/lib/billing/entitlements', () => ({
+  assertFeature: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { dispatchWebhookEvent, MAX_CONSECUTIVE_FAILURES } from './deliver';
 import { isDeliverableUrl } from './ssrf';

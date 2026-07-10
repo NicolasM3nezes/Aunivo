@@ -35,6 +35,7 @@ import { hashApiKey, looksLikeApiKey } from '@/lib/api-keys/keys';
 import { hasScope, type ApiScope } from '@/lib/api-keys/scopes';
 import { forbidden, rateLimited, unauthorized } from '@/lib/api/v1/respond';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
+import { assertFeature } from '@/lib/billing/entitlements';
 
 export interface ApiKeyContext {
   /** Discriminant — lets shared logic tell key auth from cookie auth. */
@@ -92,6 +93,12 @@ export async function requireApiKey(
     // distinguish them on the wire so a probe can't learn whether a
     // key ever existed.
     throw unauthorized();
+  }
+
+  try {
+    await assertFeature(row.account_id, 'public_api');
+  } catch {
+    throw forbidden('The public API is not available on this account plan');
   }
 
   // Rate-limit per key, before the scope check, so an unauthorized-

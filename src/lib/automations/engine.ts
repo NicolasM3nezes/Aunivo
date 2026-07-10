@@ -21,6 +21,7 @@ import { supabaseAdmin } from './admin-client'
 import { engineSendText, engineSendTemplate, engineSendInteractive } from './meta-send'
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
+import { assertFeature } from '@/lib/billing/entitlements'
 
 // ------------------------------------------------------------
 // Public API
@@ -64,6 +65,7 @@ export interface DispatchInput {
 export async function runAutomationsForTrigger(input: DispatchInput): Promise<void> {
   try {
     const db = supabaseAdmin()
+    await assertFeature(input.accountId, 'automations', db)
 
     // Tenant isolation. `contactId` can be caller-supplied (the manual
     // POST /api/automations/engine entrypoint reads it straight from the

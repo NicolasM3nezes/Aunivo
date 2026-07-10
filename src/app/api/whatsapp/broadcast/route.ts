@@ -15,6 +15,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit'
+import { assertFeature, assertWithinLimit, getMonthlyUsage, incrementMonthlyUsage } from '@/lib/billing/entitlements'
 
 interface BroadcastResult {
   phone: string
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
       template_name,
       template_language,
       template_params,
+      billing_usage_key,
     } = body
 
     // Normalize to a list of {phone, params} regardless of shape.
@@ -126,6 +128,9 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    await assertFeature(accountId, 'broadcasts')
+    await assertWithinLimit(accountId, 'broadcast_recipients_monthly', await getMonthlyUsage(accountId, 'broadcast_recipients'), recipients.length)
 
     if (!template_name) {
       return NextResponse.json(
@@ -246,6 +251,7 @@ export async function POST(request: Request) {
       }
     }
 
+    if (sentCount > 0) await incrementMonthlyUsage(accountId, 'broadcast_recipients', sentCount, typeof billing_usage_key === 'string' ? billing_usage_key : undefined)
     return NextResponse.json({
       success: true,
       total: recipients.length,

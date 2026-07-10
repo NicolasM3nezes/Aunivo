@@ -8,6 +8,7 @@ import {
   validateStepsForActivation,
   validateTriggerForActivation,
 } from '@/lib/automations/validate'
+import { assertFeature, assertWithinLimit } from '@/lib/billing/entitlements'
 
 export async function GET() {
   const supabase = await createClient()
@@ -29,7 +30,10 @@ export async function POST(request: Request) {
   // requires `agent`, but this route inserts via the service-role client
   // which bypasses RLS, so the role must be enforced here.
   try {
-    await requireRole('agent')
+    const ctx = await requireRole('agent')
+    await assertFeature(ctx.accountId, 'automations')
+    const { count } = await supabaseAdmin().from('automations').select('id', { count: 'exact', head: true }).eq('account_id', ctx.accountId)
+    await assertWithinLimit(ctx.accountId, 'automations', count ?? 0)
   } catch (err) {
     return toErrorResponse(err)
   }

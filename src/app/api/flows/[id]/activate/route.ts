@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { validateFlowForActivation } from '@/lib/flows/validate'
+import { assertFeature } from '@/lib/billing/entitlements'
 
 /**
  * POST /api/flows/[id]/activate
@@ -29,7 +30,8 @@ export async function POST(
   // below bypasses RLS, so enforce the role here (a viewer passes the
   // membership-only ownership check).
   try {
-    await requireRole('agent')
+    const ctx = await requireRole('agent')
+    if ((await request.clone().json().catch(() => null))?.status === 'active') await assertFeature(ctx.accountId, 'flows')
   } catch (err) {
     return toErrorResponse(err)
   }
