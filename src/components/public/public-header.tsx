@@ -44,22 +44,26 @@ export function PublicHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:h-[72px] lg:px-8">
           <Link
-            href="/"
-            aria-label="Aunivo — Página inicial"
-            className="inline-flex shrink-0 items-center rounded-xl transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-          >
-            <Image
-              src="/brand/aunivo-logo.png"
-              alt="Aunivo"
-              width={220}
-              height={72}
-              priority
-              className="h-9 w-auto object-contain sm:h-10"
-            />
-          </Link>
+  href="/"
+  aria-label="Aunivo — Página inicial"
+  className="inline-flex shrink-0 items-center gap-2.5 rounded-xl transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+>
+  <Image
+    src="/brand/aunivo-icon.png"
+    alt=""
+    width={44}
+    height={44}
+    priority
+    className="size-10 shrink-0 object-contain sm:size-11"
+  />
+
+  <span className="text-xl font-semibold tracking-[-0.03em] text-foreground sm:text-2xl">
+    Aunivo
+  </span>
+</Link>
 
           <nav
             aria-label="Navegação principal"

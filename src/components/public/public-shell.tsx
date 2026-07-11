@@ -1,12 +1,17 @@
 import type { ReactNode } from 'react';
-import { PublicHeader } from './public-header';
+
 import { PublicFooter } from './public-footer';
+import { PublicHeader } from './public-header';
 
 export function PublicShell({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-background text-foreground min-h-screen overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
       <PublicHeader />
-      <main>{children}</main>
+
+      <main className="pt-16 lg:pt-[72px]">
+        {children}
+      </main>
+
       <PublicFooter />
     </div>
   );

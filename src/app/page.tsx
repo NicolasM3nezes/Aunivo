@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/accordion';
 
 export const metadata: Metadata = {
-  title: 'Aunivo — IA e automação para vendas no WhatsApp',
+  title: 'Aunivo - CRM e automação para vendas no WhatsApp',
   description:
     'Centralize conversas, qualifique leads e automatize o atendimento comercial no WhatsApp com o Aunivo.',
   alternates: {
@@ -184,7 +184,7 @@ const plans = [
       'Indicadores operacionais',
     ],
     cta: PLAN_DISPLAY.pro.cta,
-    href: '/cadastro?plan=pro',
+    href: '/planos',
     featured: true,
   },
   {
@@ -326,7 +326,7 @@ export default function HomePage() {
                     {title}
                   </p>
                   <p className="text-muted-foreground mt-1 text-xs leading-5">
-                    {description}
+                    {description} 
                   </p>
                 </div>
               </div>
@@ -665,22 +665,18 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
     <p className="text-primary text-sm font-semibold tracking-[.18em] uppercase">
       {children}
     </p>
+    
   );
 }
 
 function ProductDemo() {
   return (
+    
     <div className="relative mx-auto w-full max-w-xl">
+      
       <div className="bg-primary/15 absolute -inset-10 -z-10 rounded-full blur-3xl" />
 
-      <div className="border-border/70 bg-background/90 absolute -top-8 -right-8 hidden rounded-2xl border px-4 py-3 shadow-xl backdrop-blur sm:block">
-        <p className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-          Atendimento
-        </p>
-        <p className="text-foreground mt-1 text-sm font-bold">
-          Respostas em segundos
-        </p>
-      </div>
+      
 
       <div className="border-border/70 bg-card overflow-hidden rounded-[1.75rem] border shadow-2xl shadow-black/10">
         <div className="border-border/70 bg-background/70 flex items-center justify-between border-b px-5 py-3 backdrop-blur">

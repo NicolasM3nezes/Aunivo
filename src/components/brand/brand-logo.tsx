@@ -1,22 +1,22 @@
-import Image from "next/image";
-import Link from "next/link";
+import Image from 'next/image';
+import Link from 'next/link';
 
-type BrandLogoProps = {
+type AunivoBrandProps = {
   href?: string;
-  className?: string;
   priority?: boolean;
+  className?: string;
 };
 
-export function BrandLogo({
-  href = "/",
-  className = "",
+export function AunivoBrand({
+  href = '/',
   priority = false,
-}: BrandLogoProps) {
+  className = '',
+}: AunivoBrandProps) {
   return (
     <Link
       href={href}
       aria-label="Aunivo — Página inicial"
-      className={`inline-flex items-center transition-opacity hover:opacity-90 ${className}`}
+      className={`inline-flex shrink-0 items-center transition-opacity hover:opacity-90 ${className}`}
     >
       <Image
         src="/brand/aunivo-logo.png"
@@ -24,7 +24,16 @@ export function BrandLogo({
         width={220}
         height={72}
         priority={priority}
-        className="h-9 w-auto object-contain sm:h-10"
+        className="h-9 w-auto object-contain dark:hidden sm:h-10"
+      />
+
+      <Image
+        src="/brand/aunivo-logo-white.png"
+        alt="Aunivo"
+        width={220}
+        height={72}
+        priority={priority}
+        className="hidden h-9 w-auto object-contain dark:block sm:h-10"
       />
     </Link>
   );

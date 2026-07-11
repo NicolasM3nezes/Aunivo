@@ -63,7 +63,7 @@ const plans = [
     price: PLAN_DISPLAY.pro.price,
     priceSuffix: '',
     cta: PLAN_DISPLAY.pro.cta,
-    href: '/cadastro?plan=pro',
+    href: '/planos',
     featured: true,
     icon: Crown,
     features: [
