@@ -184,10 +184,11 @@ BEGIN
 
   -- Spin up a fresh personal account for the removed user. Mirror
   -- of handle_new_user's logic — keep them whole, just relocated.
-  INSERT INTO accounts (name, owner_user_id)
+  INSERT INTO accounts (name, owner_user_id, default_currency)
   VALUES (
     COALESCE(NULLIF(v_target_name, ''), v_target_email, 'My account'),
-    p_user_id
+    p_user_id,
+    'BRL'
   )
   RETURNING id INTO v_new_account_id;
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   RAIL_GROUPS,
   SECTION_META,
@@ -47,12 +48,27 @@ export function SettingsRail({
   }, [active]);
 
   return (
-    <nav
+    <>
+      <div className="lg:hidden">
+        <Select value={active} onValueChange={(value) => onSelect(value as SettingsSection)}>
+          <SelectTrigger className="h-11 w-full rounded-xl bg-card" aria-label={t('mobileNavigation')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {RAIL_GROUPS.map(({ group }) =>
+              SETTINGS_SECTIONS.filter((section) => SECTION_META[section].group === group).map((section) => {
+                const Icon = SECTION_META[section].icon;
+                return <SelectItem key={section} value={section}><span className="flex items-center gap-2"><Icon className="size-4" />{t(`sections.${section}`)}</span></SelectItem>;
+              }),
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+      <nav
       aria-label="Settings sections"
       className={cn(
-        'flex gap-1 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-        'border-b border-border',
-        'lg:sticky lg:top-0 lg:flex-col lg:overflow-visible lg:border-b-0 lg:pb-0',
+        'hidden lg:sticky lg:top-6 lg:flex lg:flex-col lg:overflow-visible',
+        'rounded-2xl border border-border bg-card p-2 shadow-sm',
       )}
     >
       {RAIL_GROUPS.map(({ label, group }) => {
@@ -107,5 +123,6 @@ export function SettingsRail({
         );
       })}
     </nav>
+    </>
   );
 }

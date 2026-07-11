@@ -60,6 +60,8 @@ interface GatedButtonProps extends Omit<ComponentProps<typeof Button>, "title"> 
    *  per-call so each CTA can name what it does ("create flows",
    *  "send messages", "add contacts"). */
   gateReason?: string;
+  /** Fully translated tooltip. Overrides the legacy sentence builder. */
+  gateMessage?: string;
   /** Optional fallback title for the non-gated case. */
   title?: string;
   children?: ReactNode;
@@ -68,6 +70,7 @@ interface GatedButtonProps extends Omit<ComponentProps<typeof Button>, "title"> 
 export function GatedButton({
   canAct = true,
   gateReason,
+  gateMessage,
   title,
   disabled,
   className,
@@ -75,8 +78,8 @@ export function GatedButton({
   ...rest
 }: GatedButtonProps) {
   const effectivelyDisabled = disabled || !canAct;
-  const tooltip = !canAct && gateReason
-    ? `Read-only — your role can't ${gateReason}`
+  const tooltip = !canAct && (gateMessage || gateReason)
+    ? gateMessage ?? `Read-only — your role can't ${gateReason}`
     : title;
 
   return (

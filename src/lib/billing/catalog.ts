@@ -1,4 +1,5 @@
 import type { BillingFeature, BillingInterval, BillingLimit, PlanDefinition, PlanKey } from './types'
+import { PLAN_DISPLAY_NAMES, PLAN_LIMITS } from './plan-permissions'
 
 const freeFeatures: Record<BillingFeature, boolean> = {
   contacts: true, shared_inbox: false, whatsapp: true, pipelines: true, dashboard: true,
@@ -9,21 +10,21 @@ const freeFeatures: Record<BillingFeature, boolean> = {
 
 export const BILLING_PLANS: Record<PlanKey, PlanDefinition> = {
   free: {
-    key: 'free', name: 'Free', description: 'Para começar a organizar suas vendas.',
+    key: 'free', name: PLAN_DISPLAY_NAMES.free, description: 'Para começar a organizar suas vendas.',
     prices: { monthly: 0, yearly: 0 },
-    limits: { members: 1, contacts: 200, pipelines: 1, automations: 1, broadcast_recipients_monthly: 0, ai_replies_monthly: 25 },
+    limits: PLAN_LIMITS.free,
     features: freeFeatures,
   },
   pro: {
-    key: 'pro', name: 'Pro', description: 'Automação e IA para equipes em crescimento.', recommended: true,
+    key: 'pro', name: PLAN_DISPLAY_NAMES.pro, description: 'Automação e IA para equipes em crescimento.', recommended: true,
     prices: { monthly: 22900, yearly: 229000 },
-    limits: { members: 3, contacts: 5000, pipelines: 5, automations: 25, broadcast_recipients_monthly: 5000, ai_replies_monthly: 2000 },
+    limits: PLAN_LIMITS.pro,
     features: { ...freeFeatures, shared_inbox: true, custom_fields: true, broadcasts: true, flows: true, ai_auto_reply: true, knowledge_base: true, reports: true },
   },
   business: {
-    key: 'business', name: 'Business', description: 'Escala, integrações e limites ampliados.',
+    key: 'business', name: PLAN_DISPLAY_NAMES.business, description: 'Escala, integrações e limites personalizados.',
     prices: { monthly: 49900, yearly: 499000 },
-    limits: { members: 10, contacts: 50000, pipelines: null, automations: null, broadcast_recipients_monthly: 50000, ai_replies_monthly: 20000 },
+    limits: PLAN_LIMITS.business,
     features: { ...freeFeatures, shared_inbox: true, custom_fields: true, broadcasts: true, flows: true, ai_auto_reply: true, knowledge_base: true, reports: true, public_api: true, external_webhooks: true, mcp: true, advanced_permissions: true },
   },
 }

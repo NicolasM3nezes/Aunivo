@@ -15,6 +15,9 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/hooks/use-auth';
+import { canEditSettings } from '@/lib/auth/roles';
+import { SettingsPanelHead } from './settings-panel-head';
 
 interface DocSummary {
   id: string;
@@ -56,7 +59,7 @@ export function AiKnowledgeCard({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!accountId || loadedAccountIdRef.current === accountId) return;
@@ -281,5 +284,35 @@ export function AiKnowledgeCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/** Standalone settings surface; provider configuration remains in AI Agents. */
+export function AiKnowledgeSettings() {
+  const { accountId, accountRole, profileLoading } = useAuth();
+  const t = useTranslations('Settings.aiKnowledge');
+  const [hasEmbeddingsKey, setHasEmbeddingsKey] = useState(false);
+  const canEdit = accountRole ? canEditSettings(accountRole) : false;
+
+  useEffect(() => {
+    if (!accountId) return;
+    let cancelled = false;
+    void fetch('/api/ai/config', { cache: 'no-store' })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!cancelled) setHasEmbeddingsKey(Boolean(data?.has_embeddings_key));
+      });
+    return () => { cancelled = true; };
+  }, [accountId]);
+
+  if (profileLoading) {
+    return <div className="flex justify-center py-16 text-muted-foreground"><Loader2 className="mr-2 size-4 animate-spin" />{t('loading')}</div>;
+  }
+
+  return (
+    <div>
+      <SettingsPanelHead title={t('title')} description={t('pageDescription')} />
+      <AiKnowledgeCard accountId={accountId} canEdit={canEdit} hasEmbeddingsKey={hasEmbeddingsKey} />
+    </div>
   );
 }

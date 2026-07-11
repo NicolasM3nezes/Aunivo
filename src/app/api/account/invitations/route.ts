@@ -32,6 +32,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from "@/lib/rate-limit";
+import { assertWithinLimit } from "@/lib/billing/entitlements";
 
 // Resolve the base URL we publish invite links under.
 //
@@ -167,6 +168,12 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole("admin");
+
+    const [{ count: members }, { count: invitations }] = await Promise.all([
+      ctx.supabase.from("profiles").select("user_id", { count: "exact", head: true }).eq("account_id", ctx.accountId),
+      ctx.supabase.from("account_invitations").select("id", { count: "exact", head: true }).eq("account_id", ctx.accountId).is("accepted_at", null).gt("expires_at", new Date().toISOString()),
+    ]);
+    await assertWithinLimit(ctx.accountId, "members", (members ?? 0) + (invitations ?? 0));
 
     // 30/min per user. The Members tab is a clicks-only UI so any
     // legitimate admin is far below this; the cap exists to keep

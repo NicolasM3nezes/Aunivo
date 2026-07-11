@@ -11,6 +11,7 @@ import {
   validateStepsForActivation,
   validateTriggerForActivation,
 } from '@/lib/automations/validate'
+import { assertFeature, assertWithinLimit } from '@/lib/billing/entitlements'
 
 async function requireUser() {
   const supabase = await createClient()
@@ -52,8 +53,10 @@ export async function PATCH(
   // Editing an automation is a write — the RLS automations_update policy
   // requires `agent`, but this route mutates via the service-role client
   // which bypasses RLS, so enforce the role here.
+  let accountId: string
   try {
-    await requireRole('agent')
+    const ctx = await requireRole('agent')
+    accountId = ctx.accountId
   } catch (err) {
     return toErrorResponse(err)
   }
@@ -94,6 +97,15 @@ export async function PATCH(
   // are still allowed to be incomplete.
   const willBeActive =
     typeof update.is_active === 'boolean' ? update.is_active : existing.is_active
+  if (willBeActive && !existing.is_active) {
+    try {
+      await assertFeature(accountId, 'automations')
+      const { count } = await admin.from('automations').select('id', { count: 'exact', head: true }).eq('account_id', accountId).eq('is_active', true)
+      await assertWithinLimit(accountId, 'automations', count ?? 0)
+    } catch (err) {
+      return toErrorResponse(err)
+    }
+  }
   if (willBeActive) {
     const mergedTriggerType = (update.trigger_type ?? existing.trigger_type) as string
     const mergedTriggerConfig = update.trigger_config ?? existing.trigger_config

@@ -19,6 +19,8 @@ import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { BillingSettings } from '@/components/settings/billing-settings';
+import { AiConfig } from '@/components/settings/ai-config';
+import { AiKnowledgeSettings } from '@/components/settings/ai-knowledge';
 import {
   resolveSection,
   type SettingsSection,
@@ -60,6 +62,8 @@ export default function SettingsPage() {
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
     whatsapp: <WhatsAppConfig />,
+    ai: <AiConfig />,
+    knowledge: <AiKnowledgeSettings />,
     templates: <TemplateManager />,
     'quick-replies': <QuickRepliesManager />,
     fields: <FieldsAndTagsPanel />,
@@ -70,8 +74,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <div>
-      <div>
+    <div className="mx-auto w-full max-w-[1440px]">
+      <div className="rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-card px-5 py-5 shadow-sm sm:px-7 sm:py-6">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           {t('pageTitle')}
         </h1>
@@ -80,9 +84,9 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[248px_minmax(0,1fr)] lg:items-start xl:gap-8">
         <SettingsRail active={section} onSelect={go} hints={hints} />
-        <div className="min-w-0">{panel[section]}</div>
+        <main className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6 lg:p-7">{panel[section]}</main>
       </div>
     </div>
   );

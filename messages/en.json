@@ -772,7 +772,12 @@
       "title": "Automations",
       "subtitle": "Build workflows that react to WhatsApp® events automatically.",
       "create": "Create Automation",
+      "loadError": "Could not load automations.",
+      "permissionDenied": "Your role cannot create automations.",
+      "activeStatus": "Active automation",
+      "openMenu": "Open automation options",
       "retry": "Retry",
+      "loading": "Loading automations…",
       "templatesTitle": "Quick-start templates",
       "emptyTitle": "No automations yet",
       "emptyDesc": "Pick a template above or create one from scratch.",
@@ -795,7 +800,9 @@
         "deleted": "Automation deleted",
         "updateError": "Failed to update",
         "duplicateError": "Failed to duplicate",
-        "deleteError": "Failed to delete"
+        "deleteError": "Failed to delete",
+        "planLimit": "Your plan's active automation limit has been reached.",
+        "planFeature": "This feature is not available on your current plan."
       }
     },
     "edit": {
@@ -812,6 +819,7 @@
       "step": "{count} step",
       "stepPlural": "{count} steps",
       "noSteps": "No steps recorded.",
+      "stepsCount": "{count} {count, plural, =1 {step} other {steps}}",
       "status": {
         "success": "success",
         "partial": "partial",
@@ -884,6 +892,21 @@
       "save": "Save",
       "saveDraft": "Save Draft",
       "untitled": "Untitled automation",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Briefly explain what this automation does",
+      "validationAt": "Check field: {path}",
+      "delete": "Delete",
+      "moveUp": "Move step up",
+      "moveDown": "Move step down",
+      "stepKinds": { "condition": "Condition", "wait": "Wait", "action": "Action" },
+      "previews": {
+        "noText": "Message not filled in yet",
+        "noContent": "Content not filled in yet",
+        "selectTemplate": "Select a template",
+        "wait": "Wait {amount} {unit}",
+        "condition": "When: {subject}",
+        "noUrl": "URL not filled in yet"
+      },
       "backToAutomations": "Back to automations",
       "toasts": {
         "saved": "Automation saved",
@@ -1200,6 +1223,7 @@
   "Settings": {
     "pageTitle": "Settings",
     "pageDesc": "Everything in one place — your account and your workspace. Pick a section to manage it.",
+    "mobileNavigation": "Choose a settings section",
     "overview": {
       "notSetup": "Not set up yet",
       "connected": "Connected",
@@ -1500,6 +1524,9 @@
       "appearance": "Appearance",
       "whatsapp": "WhatsApp",
       "templates": "Templates",
+      "quick-replies": "Quick replies",
+      "ai": "AI agents",
+      "knowledge": "Knowledge base",
       "fields": "Fields & tags",
       "deals": "Deals & currency",
       "members": "Team members",
@@ -1508,7 +1535,10 @@
     },
     "groups": {
       "account": "Account",
-      "workspace": "Workspace"
+      "service": "Service",
+      "team": "Team",
+      "integrations": "Integrations",
+      "billing": "Plan & billing"
     },
     "profile": {
       "title": "Your profile",
@@ -1630,6 +1660,7 @@
       "title": "Agent setup",
       "description": "Bring your own OpenAI or Anthropic key. Aunivo calls the provider directly with your key — no per-seat AI fees, and your data stays yours. This powers AI-drafted replies in the inbox, the auto-reply bot, and the Playground.",
       "adminOnlyConfig": "Only admins and owners can change the AI configuration.",
+      "loading": "Loading AI configuration…",
       "loadFailed": "Failed to load AI configuration",
       "providerAndKey": "Provider & key",
       "encryptionNotice": "Your key is encrypted at rest (AES-256-GCM) and never shown again after saving.",
@@ -1667,6 +1698,7 @@
       "removeFailed": "Failed to remove."
     },
     "aiKnowledge": {
+      "pageDescription": "Organize the trusted content the assistant uses to answer customers.",
       "loadFailed": "Failed to load knowledge base",
       "openFailed": "Failed to open document",
       "titleContentRequired": "Title and content are required.",

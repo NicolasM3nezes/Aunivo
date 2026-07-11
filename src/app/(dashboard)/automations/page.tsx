@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
@@ -67,7 +67,7 @@ export default function AutomationsPage() {
   const [pendingDelete, setPendingDelete] = useState<Automation | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const supabase = createClient()
       const { data, error: fetchErr } = await supabase
@@ -77,13 +77,13 @@ export default function AutomationsPage() {
       if (fetchErr) throw fetchErr
       setAutomations((data ?? []) as Automation[])
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load automations")
+      setError(err instanceof Error ? err.message : t("loadError"))
     }
-  }
+  }, [t])
 
   useEffect(() => {
     load()
-  }, [])
+  }, [load])
 
   async function toggleActive(a: Automation, next: boolean) {
     // Optimistic flip so the switch feels instant.
@@ -101,7 +101,7 @@ export default function AutomationsPage() {
         prev?.map((x) => (x.id === a.id ? { ...x, is_active: !next } : x)) ?? prev,
       )
       const body = await res.json().catch(() => ({}))
-      toast.error(body?.error ?? t("toasts.updateError"))
+      toast.error(planError(body, t, "toasts.updateError"))
       return
     }
     toast.success(next ? t("toasts.activated") : t("toasts.paused"))
@@ -111,7 +111,7 @@ export default function AutomationsPage() {
     const res = await fetch(`/api/automations/${a.id}/duplicate`, { method: "POST" })
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      toast.error(body?.error ?? t("toasts.duplicateError"))
+      toast.error(planError(body, t, "toasts.duplicateError"))
       return
     }
     toast.success(t("toasts.duplicated"))
@@ -125,7 +125,7 @@ export default function AutomationsPage() {
     setDeleting(false)
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      toast.error(body?.error ?? t("toasts.deleteError"))
+      toast.error(planError(body, t, "toasts.deleteError"))
       return
     }
     toast.success(t("toasts.deleted"))
@@ -150,8 +150,8 @@ export default function AutomationsPage() {
 
   if (automations === null) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="flex h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" /> {t("loading")}
       </div>
     )
   }
@@ -160,7 +160,7 @@ export default function AutomationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -169,7 +169,7 @@ export default function AutomationsPage() {
         </div>
         <GatedButton
           canAct={canCreate}
-          gateReason="create automations"
+          gateMessage={t("permissionDenied")}
           onClick={() => router.push("/automations/new")}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
@@ -183,7 +183,7 @@ export default function AutomationsPage() {
           <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{t("templatesTitle")}</h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {TEMPLATE_ORDER.map((slug) => {
-              const t = AUTOMATION_TEMPLATES[slug]
+              const template = AUTOMATION_TEMPLATES[slug]
               const Icon = TEMPLATE_ICON[slug]
               return (
                 <button
@@ -194,8 +194,8 @@ export default function AutomationsPage() {
                   <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary/15">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <div className="text-sm font-semibold text-foreground">{t.name}</div>
-                  <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>
+                  <div className="text-sm font-semibold text-foreground">{template.name}</div>
+                  <p className="mt-1 text-xs text-muted-foreground">{template.description}</p>
                 </button>
               )
             })}
@@ -204,7 +204,7 @@ export default function AutomationsPage() {
       )}
 
       {automations.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/40">
+        <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/50 px-5 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <Zap className="h-6 w-6 text-primary" />
           </div>
@@ -212,6 +212,7 @@ export default function AutomationsPage() {
           <p className="mt-1 text-xs text-muted-foreground">
             {t("emptyDesc")}
           </p>
+          {canCreate && <Button className="mt-4" onClick={() => router.push("/automations/new")}><Plus className="size-4" />{t("create")}</Button>}
         </div>
       ) : (
         <ul className="space-y-3">
@@ -219,6 +220,7 @@ export default function AutomationsPage() {
             <AutomationCard
               key={a.id}
               automation={a}
+              canManage={canCreate}
               onToggle={(next) => toggleActive(a, next)}
               onEdit={() => router.push(`/automations/${a.id}/edit`)}
               onDuplicate={() => duplicate(a)}
@@ -261,8 +263,15 @@ export default function AutomationsPage() {
   )
 }
 
+function planError(body: { code?: string } | null, t: ReturnType<typeof useTranslations>, fallback: string) {
+  if (body?.code === "limit_reached") return t("toasts.planLimit")
+  if (body?.code === "feature_unavailable") return t("toasts.planFeature")
+  return t(fallback)
+}
+
 function AutomationCard({
   automation,
+  canManage,
   onToggle,
   onEdit,
   onDuplicate,
@@ -271,6 +280,7 @@ function AutomationCard({
   t,
 }: {
   automation: Automation
+  canManage: boolean
   onToggle: (next: boolean) => void
   onEdit: () => void
   onDuplicate: () => void
@@ -281,7 +291,7 @@ function AutomationCard({
   const meta = triggerMeta(automation.trigger_type)
   return (
     <li className="rounded-xl border border-border bg-card transition-colors hover:border-border">
-      <div className="flex items-center gap-4 p-4">
+      <div className="flex items-center gap-3 p-4 sm:gap-4">
         <div
           className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10"
           aria-hidden
@@ -299,7 +309,7 @@ function AutomationCard({
               {automation.name}
             </span>
             {automation.is_active && (
-              <span className="relative flex h-2 w-2" aria-label="active">
+              <span className="relative flex h-2 w-2" aria-label={t("activeStatus")}>
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
@@ -327,26 +337,27 @@ function AutomationCard({
           </div>
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <Switch
             checked={automation.is_active}
+            disabled={!canManage}
             onCheckedChange={(v) => onToggle(!!v)}
             aria-label={automation.is_active ? t("deactivate") : t("activate")}
           />
 
           <DropdownMenu>
             <DropdownMenuTrigger
-              aria-label="Open menu"
+              aria-label={t("openMenu")}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[popup-open]:bg-muted"
             >
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onEdit}>
+              <DropdownMenuItem onClick={onEdit} disabled={!canManage}>
                 <Pencil className="h-4 w-4" />
                 {t("edit")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onDuplicate}>
+              <DropdownMenuItem onClick={onDuplicate} disabled={!canManage}>
                 <Copy className="h-4 w-4" />
                 {t("duplicate")}
               </DropdownMenuItem>
@@ -355,7 +366,7 @@ function AutomationCard({
                 {t("viewLogs")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={onDelete}>
+              <DropdownMenuItem variant="destructive" onClick={onDelete} disabled={!canManage}>
                 <Trash2 className="h-4 w-4" />
                 {t("delete")}
               </DropdownMenuItem>

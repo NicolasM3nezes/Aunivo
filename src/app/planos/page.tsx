@@ -67,7 +67,7 @@ const plans = [
     featured: true,
     icon: Crown,
     features: [
-      'Até 2 usuários',
+      'Até 3 usuários',
       'Até 5.000 contatos',
       'Até 5 funis',
       'Até 25 automações',
@@ -102,7 +102,7 @@ const plans = [
 ] as const;
 
 const comparison = [
-  ['Usuários', '1', 'Até 2', 'Personalizado'],
+  ['Usuários', '1', 'Até 3', 'Personalizado'],
   ['Contatos', 'Até 200', 'Até 5.000', 'Sob medida'],
   ['Funis', '1', 'Até 5', 'Personalizado'],
   ['Automações', '1', 'Até 25', 'Personalizado'],
@@ -110,7 +110,7 @@ const comparison = [
   ['Respostas de IA', '25/mês', '2.000/mês', 'Sob medida'],
   ['Base de conhecimento', '—', 'Incluída', 'Incluída'],
   ['API, webhooks e MCP', '—', '—', 'Incluídos'],
-  ['Suporte prioritário', '—', '—', 'Incluído'],
+  ['Suporte prioritário', '—', 'Incluído', 'Incluído'],
 ] as const;
 
 const benefits = [

@@ -1,4 +1,6 @@
-export type PlanKey = 'free' | 'pro' | 'business'
+import type { InternalPlan } from './plan-permissions'
+
+export type PlanKey = InternalPlan
 export type BillingInterval = 'monthly' | 'yearly'
 export type SubscriptionStatus =
   | 'free' | 'trialing' | 'active' | 'past_due' | 'unpaid'
@@ -12,7 +14,7 @@ export type BillingFeature =
 
 export type BillingLimit =
   | 'members' | 'contacts' | 'pipelines' | 'automations'
-  | 'broadcast_recipients_monthly' | 'ai_replies_monthly'
+  | 'flows' | 'ai_agents' | 'broadcast_recipients_monthly' | 'ai_replies_monthly'
 
 export interface PlanDefinition {
   key: PlanKey

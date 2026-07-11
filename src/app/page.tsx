@@ -176,7 +176,7 @@ const plans = [
     suffix: '',
     description: PLAN_DISPLAY.pro.description,
     features: [
-      'Até 2 usuários',
+      'Até 3 usuários',
       'Atendimento com IA',
       'Automações comerciais',
       'Funil de vendas completo',

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/automations/admin-client'
+import { assertFeature } from '@/lib/billing/entitlements'
 
 export async function POST(
   _request: Request,
@@ -13,7 +14,8 @@ export async function POST(
   // (the service-role client below bypasses the agent-gated
   // automations_insert RLS).
   try {
-    await requireRole('agent')
+    const ctx = await requireRole('agent')
+    await assertFeature(ctx.accountId, 'automations')
   } catch (err) {
     return toErrorResponse(err)
   }

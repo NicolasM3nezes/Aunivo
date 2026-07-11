@@ -577,7 +577,7 @@
       "pipelineValueTooltip": "Soma dos valores em dólares de todos os negócios neste pipeline, excluindo os negócios marcados como Perdidos.",
       "avgDealSize": "Avg Oportunidade Size",
       "avgDealSizeTooltip": "Valor do pipeline dividido pelo total de negócios — o valor médio de um único negócio não perdido.",
-      "weightedValue": "Weighted Valor",
+      "weightedValue": "Valor Ponderado",
       "weightedValueTooltip": "Receita esperada: valor de cada negócio aberto × sua probabilidade de estágio. Primeira etapa ≈ 10%, etapas avançam até 90%, Ganhos = 100%. Negócios perdidos são excluídos.",
       "wonThisMonth": "Ganhas neste mês",
       "wonThisMonthTooltip": "Negócios marcados como ganhos desde o primeiro dia do mês atual.",
@@ -772,13 +772,18 @@
       "title": "Automações",
       "subtitle": "Crie fluxos de trabalho que reagem automaticamente a eventos do WhatsApp®.",
       "create": "Criar automação",
+      "loadError": "Não foi possível carregar as automações.",
+      "permissionDenied": "Seu perfil não tem permissão para criar automações.",
+      "activeStatus": "Automação ativa",
+      "openMenu": "Abrir opções da automação",
       "retry": "Tentar novamente",
+      "loading": "Carregando automações…",
       "templatesTitle": "Modelos para começar rápido",
       "emptyTitle": "Nenhuma automação ainda",
       "emptyDesc": "Escolha um modelo acima ou crie um do zero.",
       "runs": "Execução {count}",
-      "runsPlural": "{count} é executado",
-      "lastRun": "último {time}",
+      "runsPlural": "{count} execuções",
+      "lastRun": "Última execução: {time}",
       "activate": "Ativar",
       "deactivate": "Desativar",
       "edit": "Editar",
@@ -789,33 +794,36 @@
       "deleteTitle": "Excluir automação",
       "deleteDesc": "Isso remove permanentemente {name} e seu histórico de execução. Isto não pode ser desfeito.",
       "toasts": {
-        "activated": "Automação activated",
-        "paused": "Automação paused",
-        "duplicated": "Automação duplicated",
-        "deleted": "Automação excluído",
-        "updateError": "Não foi possível update",
-        "duplicateError": "Não foi possível duplicate",
-        "deleteError": "Falha ao excluir"
+        "activated": "Automação ativada",
+        "paused": "Automação pausada",
+        "duplicated": "Automação duplicada",
+        "deleted": "Automação excluída",
+        "updateError": "Não foi possível atualizar a automação",
+        "duplicateError": "Não foi possível duplicar a automação",
+        "deleteError": "Não foi possível excluir a automação",
+        "planLimit": "O limite de automações ativas do seu plano foi atingido.",
+        "planFeature": "Este recurso não está disponível no seu plano atual."
       }
     },
     "edit": {
       "loading": "Carregando...",
-      "loadError": "Não foi possível load ({status})",
+      "loadError": "Não foi possível carregar a automação ({status})",
       "back": "Voltar para automações"
     },
     "logs": {
       "title": "Registros de execução",
-      "loadError": "Não foi possível load logs",
-      "emptyTitle": "Nenhum executions yet",
+      "loadError": "Não foi possível carregar o histórico",
+      "emptyTitle": "Nenhuma execução registrada",
       "emptyDesc": "Acione esta automação para ver as execuções aqui.",
-      "unknownContact": "Desconhecido contato",
+      "unknownContact": "Contato desconhecido",
       "step": "Etapa {count}",
       "stepPlural": "Etapas {count}",
-      "noSteps": "Nenhum steps recorded.",
+      "stepsCount": "{count} {count, plural, =1 {etapa} other {etapas}}",
+      "noSteps": "Nenhuma etapa foi registrada.",
       "status": {
-        "success": "sucesso",
+        "success": "Concluída",
         "partial": "parcial",
-        "failed": "fracassado"
+        "failed": "Falhou"
       },
       "back": "Voltar",
       "backAria": "Voltar"
@@ -823,9 +831,9 @@
     "builder": {
       "steps": {
         "send_message": "Enviar mensagem",
-        "send_buttons": "Enviar Buttons",
-        "send_list": "Enviar List",
-        "send_template": "Enviar Modelo",
+        "send_buttons": "Enviar botões",
+        "send_list": "Enviar lista",
+        "send_template": "Enviar modelo",
         "add_tag": "Adicionar etiqueta",
         "remove_tag": "Remover etiqueta",
         "assign_conversation": "Atribuir conversa",
@@ -847,22 +855,22 @@
         },
         "keyword_match": {
           "label": "Correspondência de palavra-chave",
-          "hint": "Mensagem contains specific keyword(s)"
+          "hint": "Quando a mensagem contém uma das palavras definidas"
         },
         "interactive_reply": {
           "label": "Botão/lista de resposta",
           "hint": "O cliente toca em um botão ou linha da lista cujo ID corresponde – encadeie menus entre automações"
         },
         "new_contact_created": {
-          "label": "Novo Contato Created",
+          "label": "Novo contato criado",
           "hint": "Quando um contato é criado automaticamente a partir de uma mensagem recebida"
         },
         "conversation_assigned": {
-          "label": "Conversa Assigned",
+          "label": "Conversa atribuída",
           "hint": "Quando atribuído a um agente"
         },
         "tag_added": {
-          "label": "Etiqueta Added",
+          "label": "Etiqueta adicionada",
           "hint": "Quando uma tag é adicionada a um contato"
         },
         "time_based": {
@@ -878,51 +886,66 @@
       "replyIdsHint": "sim, não, mais_info",
       "replyIdsHelp": "IDs de botão/linha de lista separados por vírgula para correspondência exata. Use os mesmos IDs que você definiu na etapa Botões de envio/Lista de envio.",
       "schedule": "Agendamento",
-      "scheduleHint": "Expressão Cron (por exemplo, 0 9 * * 1-5)",
-      "active": "Ativo",
-      "activeAria": "Ativo",
+      "scheduleHint": "Programação recorrente no formato cron (por exemplo, 0 9 * * 1-5 para dias úteis às 9h)",
+      "active": "Ativa",
+      "activeAria": "Ativar ou pausar automação",
       "save": "Salvar",
       "saveDraft": "Salvar rascunho",
-      "untitled": "Untitled automação",
+      "untitled": "Automação sem título",
+      "descriptionLabel": "Descrição",
+      "descriptionPlaceholder": "Explique em poucas palavras o que esta automação faz",
+      "validationAt": "Verifique o campo: {path}",
+      "delete": "Excluir",
+      "moveUp": "Mover etapa para cima",
+      "moveDown": "Mover etapa para baixo",
+      "stepKinds": { "condition": "Condição", "wait": "Espera", "action": "Ação" },
+      "previews": {
+        "noText": "Mensagem ainda não preenchida",
+        "noContent": "Conteúdo ainda não preenchido",
+        "selectTemplate": "Selecione um modelo",
+        "wait": "Aguardar {amount} {unit}",
+        "condition": "Quando: {subject}",
+        "noUrl": "URL ainda não preenchida"
+      },
       "backToAutomations": "Voltar para automações",
       "toasts": {
         "saved": "Automação salva",
-        "created": "Automação criado",
+        "created": "Automação criada",
         "saveFailed": "Falha ao salvar"
       },
       "tags": {
         "select": "Selecionar a etiqueta…",
-        "placeholder": "Etiqueta id",
-        "unknown": "{id} (desconhecido etiqueta)"
+        "placeholder": "Identificador da etiqueta",
+        "unknown": "{id} (etiqueta desconhecida)"
       },
       "fields": {
         "name": "Nome",
         "email": "E-mail",
         "company": "Empresa",
         "customFields": "Campos personalizados",
-        "unknown": "{id} (desconhecido campo)"
+        "unknown": "{id} (campo desconhecido)"
       },
       "agents": {
-        "select": "Selecionar an agent…",
+        "select": "Selecionar um atendente…",
         "placeholder": "ID do agente",
-        "unknown": "{id} (desconhecido agent)"
+        "unknown": "{id} (atendente desconhecido)"
       },
       "pipelines": {
         "pipelineLabel": "Funil",
-        "pipelineIdLabel": "Funil id",
-        "stageLabel": "Estágio",
+        "pipelineIdLabel": "Identificador do funil",
+        "stageLabel": "Etapa",
         "stageIdLabel": "ID do estágio",
-        "selectPipeline": "Selecionar a funil…",
-        "selectStage": "Selecionar a stage…",
-        "selectPipelineFirst": "Selecionar a funil first…",
-        "unknownPipeline": "{id} (desconhecido funil)",
-        "unknownStage": "{id} (desconhecido stage)"
+        "selectPipeline": "Selecionar um funil…",
+        "selectStage": "Selecionar uma etapa…",
+        "selectPipelineFirst": "Selecione primeiro um funil…",
+        "unknownPipeline": "{id} (funil desconhecido)",
+        "unknownStage": "{id} (etapa desconhecida)"
       },
       "templates": {
         "templateLabel": "Modelo",
-        "templateNameLabel": "Modelo nome",
+        "templateNameLabel": "Nome do modelo",
         "languageLabel": "Idioma",
-        "select": "Selecionar a modelo…",
+        "select": "Selecionar um modelo…",
         "unknown": "{name} ({lang}) — não na lista aprovada",
         "unknownLang": "desconhecido"
       },
@@ -932,18 +955,18 @@
       },
       "addStep": "Adicionar etapa",
       "config": {
-        "messageText": "Mensagem text",
+        "messageText": "Texto da mensagem",
         "placeholderMessageText": "Oi! Obrigado por entrar em contato…",
         "tagLabel": "Etiqueta",
         "modeLabel": "Modo",
         "modes": {
-          "round_robin": "Rodada",
+          "round_robin": "Distribuir entre atendentes",
           "specific": "Agente específico"
         },
         "agentLabel": "Atendente",
         "fieldLabel": "Campo",
         "valueLabel": "Valor",
-        "placeholderValue": "Text or {{ vars.x }} / {{ mensagem.text }}",
+        "placeholderValue": "Texto ou uma variável da automação",
         "titleLabel": "Título",
         "amountLabel": "Quantia",
         "unitLabel": "Unidade",
@@ -954,20 +977,20 @@
         },
         "subjectLabel": "Assunto",
         "subjects": {
-          "tag_presence": "Etiqueta presence",
-          "contact_field": "Contato campo",
-          "message_content": "Mensagem content",
-          "time_of_day": "Time of dia"
+          "tag_presence": "Contato possui etiqueta",
+          "contact_field": "Campo do contato",
+          "message_content": "Conteúdo da mensagem",
+          "time_of_day": "Horário do dia"
         },
         "operandLabel": "Operando",
         "placeholderTime": "HH:mm-HH:mm",
-        "placeholderContact": "nome / e-mail / company",
-        "placeholderTag": "etiqueta id",
+        "placeholderContact": "nome, e-mail ou empresa",
+        "placeholderTag": "identificador da etiqueta",
         "urlLabel": "URL",
         "headersLabel": "Cabeçalhos",
         "placeholderHeaders": "{\"Authorization\": \"Bearer ...\"}",
-        "bodyTemplateLabel": "Body modelo",
-        "placeholderBody": "{\"id\": \"{{ contato.id }}\"}",
+        "bodyTemplateLabel": "Modelo do conteúdo",
+        "placeholderBody": "{\"id\": \"{{ contact.id }}\"}",
         "matchType": "Tipo de correspondência",
         "matchContains": "Contém",
         "matchExact": "Exato",
@@ -1200,6 +1223,7 @@
   "Settings": {
     "pageTitle": "Configurações",
     "pageDesc": "Tudo em um só lugar: sua conta e seu espaço de trabalho. Escolha uma seção para gerenciá-la.",
+    "mobileNavigation": "Escolha uma seção de configurações",
     "overview": {
       "notSetup": "Ainda não configurado",
       "connected": "Conectado",
@@ -1490,6 +1514,9 @@
       "appearance": "Aparência",
       "whatsapp": "WhatsApp",
       "templates": "Modelos",
+      "quick-replies": "Respostas rápidas",
+      "ai": "Agentes de IA",
+      "knowledge": "Base de conhecimento",
       "fields": "Campos e etiquetas",
       "deals": "Oportunidades e moeda",
       "members": "Membros da equipe",
@@ -1498,7 +1525,10 @@
     },
     "groups": {
       "account": "Conta",
-      "workspace": "Espaço de trabalho"
+      "service": "Atendimento",
+      "team": "Equipe",
+      "integrations": "Integrações",
+      "billing": "Plano e cobrança"
     },
     "profile": {
       "title": "Seu perfil",
@@ -1618,6 +1648,7 @@
       "title": "Configuração do agente",
       "description": "Use sua própria chave da OpenAI ou Anthropic. O Aunivo acessa o provedor diretamente com sua chave, sem cobrança de IA por usuário. Isso permite rascunhos com IA, respostas automáticas e o Playground.",
       "adminOnlyConfig": "Somente administradores e proprietários podem alterar a configuração do AI.",
+      "loading": "Carregando configuração de IA…",
       "loadFailed": "Não foi possível load AI configuration",
       "providerAndKey": "Provedor e chave",
       "encryptionNotice": "Sua chave é criptografada em repouso (AES-256-GCM) e nunca mais é mostrada após ser salva.",
@@ -1655,6 +1686,7 @@
       "removeFailed": "Falha ao remover."
     },
     "aiKnowledge": {
+      "pageDescription": "Organize o conteúdo confiável que o assistente usa para responder aos clientes.",
       "loadFailed": "Não foi possível load knowledge base",
       "openFailed": "Falha ao abrir o documento",
       "titleContentRequired": "Title and content are obrigatório.",

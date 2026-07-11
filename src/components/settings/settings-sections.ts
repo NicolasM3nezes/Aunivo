@@ -6,6 +6,8 @@ import {
   LayoutGrid,
   Palette,
   PlugZap,
+  Bot,
+  BookOpen,
   Shield,
   Tags,
   User,
@@ -28,6 +30,8 @@ export const SETTINGS_SECTIONS = [
   'security',
   'appearance',
   'whatsapp',
+  'ai',
+  'knowledge',
   'templates',
   'quick-replies',
   'fields',
@@ -46,7 +50,7 @@ export interface SectionMeta {
   id: SettingsSection;
   label: string;
   icon: LucideIcon;
-  group: 'top' | 'account' | 'workspace';
+  group: 'top' | 'account' | 'service' | 'team' | 'integrations' | 'billing';
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
@@ -54,20 +58,25 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
   appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
-  whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
-  templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
-  'quick-replies': { id: 'quick-replies', label: 'Quick replies', icon: Zap, group: 'workspace' },
-  fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace' },
-  deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace' },
-  members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
-  api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
-  billing: { id: 'billing', label: 'Plan & billing', icon: CreditCard, group: 'workspace' },
+  whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'service' },
+  templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'service' },
+  'quick-replies': { id: 'quick-replies', label: 'Quick replies', icon: Zap, group: 'service' },
+  ai: { id: 'ai', label: 'AI agents', icon: Bot, group: 'service' },
+  knowledge: { id: 'knowledge', label: 'Knowledge base', icon: BookOpen, group: 'service' },
+  fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'account' },
+  deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'account' },
+  members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'team' },
+  api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'integrations' },
+  billing: { id: 'billing', label: 'Plan & billing', icon: CreditCard, group: 'billing' },
 };
 
 export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [
   { label: null, group: 'top' },
   { label: 'Account', group: 'account' },
-  { label: 'Workspace', group: 'workspace' },
+  { label: 'Service', group: 'service' },
+  { label: 'Team', group: 'team' },
+  { label: 'Integrations', group: 'integrations' },
+  { label: 'Billing', group: 'billing' },
 ];
 
 function isSection(value: string | null): value is SettingsSection {
@@ -82,6 +91,8 @@ function isSection(value: string | null): value is SettingsSection {
  */
 export function resolveSection(raw: string | null): SettingsSection {
   if (raw === 'tags' || raw === 'custom-fields') return 'fields';
+  if (raw === 'ai-config' || raw === 'agents') return 'ai';
+  if (raw === 'knowledge-base') return 'knowledge';
   if (isSection(raw)) return raw;
   return DEFAULT_SECTION;
 }

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { getFlowTemplate } from '@/lib/flows/templates'
-import { assertFeature } from '@/lib/billing/entitlements'
+import { assertFeature, assertWithinLimit } from '@/lib/billing/entitlements'
 
 /**
  * GET /api/flows — list the caller's flows.
@@ -53,6 +53,12 @@ export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent')
     await assertFeature(ctx.accountId, 'flows')
+    const { count, error } = await supabaseAdmin()
+      .from('flows')
+      .select('id', { count: 'exact', head: true })
+      .eq('account_id', ctx.accountId)
+    if (error) throw new Error(`Could not count flows: ${error.message}`)
+    await assertWithinLimit(ctx.accountId, 'flows', count ?? 0)
   } catch (err) {
     return toErrorResponse(err)
   }

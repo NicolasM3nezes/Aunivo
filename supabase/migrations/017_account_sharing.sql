@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   -- their account" reads and for the one-account-per-user invariant
   -- below. The source of truth for membership is profiles.account_id.
   owner_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+  default_currency TEXT NOT NULL DEFAULT 'BRL',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -237,9 +238,10 @@ BEGIN
 
   -- (1) Create one account per existing profile whose user does not
   -- yet own one. Idempotent: skips users that already have an account.
-  INSERT INTO accounts (name, owner_user_id)
+  INSERT INTO accounts (name, owner_user_id, default_currency)
   SELECT COALESCE(NULLIF(p.full_name, ''), p.email, 'My account'),
-         p.user_id
+         p.user_id,
+         'BRL'
   FROM profiles p
   WHERE NOT EXISTS (
     SELECT 1 FROM accounts a WHERE a.owner_user_id = p.user_id
@@ -668,8 +670,8 @@ DECLARE
 BEGIN
   v_full_name := COALESCE(NEW.raw_user_meta_data->>'full_name', '');
 
-  INSERT INTO public.accounts (name, owner_user_id)
-  VALUES (COALESCE(NULLIF(v_full_name, ''), NEW.email, 'My account'), NEW.id)
+  INSERT INTO public.accounts (name, owner_user_id, default_currency)
+  VALUES (COALESCE(NULLIF(v_full_name, ''), NEW.email, 'My account'), NEW.id, 'BRL')
   RETURNING id INTO v_account_id;
 
   INSERT INTO public.profiles (user_id, full_name, email, account_id, account_role)

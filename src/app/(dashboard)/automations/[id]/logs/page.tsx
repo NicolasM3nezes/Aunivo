@@ -20,7 +20,7 @@ import type {
 } from "@/types"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { formatRelative } from "@/lib/automations/trigger-meta"
+import { formatRelative, triggerMeta } from "@/lib/automations/trigger-meta"
 
 export default function AutomationLogsPage({
   params,
@@ -30,6 +30,7 @@ export default function AutomationLogsPage({
   const { id } = use(params)
   const router = useRouter()
   const t = useTranslations("Automations.logs")
+  const tb = useTranslations("Automations.builder")
 
   const [automation, setAutomation] = useState<Automation | null>(null)
   const [logs, setLogs] = useState<AutomationLog[] | null>(null)
@@ -62,7 +63,7 @@ export default function AutomationLogsPage({
       }
     }
     load()
-  }, [id])
+  }, [id, t])
 
   if (error) {
     return (
@@ -85,7 +86,7 @@ export default function AutomationLogsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-sm sm:p-6">
         <button
           type="button"
           onClick={() => router.push("/automations")}
@@ -132,8 +133,7 @@ export default function AutomationLogsPage({
                       {log.contact?.name ?? log.contact?.phone ?? t("unknownContact")}
                     </div>
                     <div className="truncate text-xs text-muted-foreground">
-                      {log.trigger_event} · {log.steps_executed?.length ?? 0}{" "}
-                      {log.steps_executed?.length === 1 ? t("step", { count: 1 }).replace("1 ", "") : t("stepPlural", { count: log.steps_executed?.length ?? 0 }).replace(/^[0-9]+ /, "")}
+                      {triggerMeta(log.trigger_event).label} · {t("stepsCount", { count: log.steps_executed?.length ?? 0 })}
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -149,7 +149,7 @@ export default function AutomationLogsPage({
                     )}
                     <ul className="space-y-1.5">
                       {(log.steps_executed ?? []).map((r, i) => (
-                        <StepRow key={i} result={r} />
+                        <StepRow key={i} result={r} stepLabel={tb(`steps.${r.step_type}`)} />
                       ))}
                       {(log.steps_executed ?? []).length === 0 && (
                         <li className="text-xs text-muted-foreground">{t("noSteps")}</li>
@@ -185,7 +185,7 @@ function StatusBadge({ status, t }: { status: AutomationLog["status"], t: Return
   )
 }
 
-function StepRow({ result }: { result: AutomationLogStepResult }) {
+function StepRow({ result, stepLabel }: { result: AutomationLogStepResult; stepLabel: string }) {
   const ok = result.status === "success"
   return (
     <li className="flex items-start gap-2 text-xs">
@@ -198,7 +198,7 @@ function StepRow({ result }: { result: AutomationLogStepResult }) {
       >
         {ok ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
       </span>
-      <span className="text-muted-foreground">{result.step_type}</span>
+      <span className="text-muted-foreground">{stepLabel}</span>
       {result.detail && (
         <span className="truncate text-muted-foreground">— {result.detail}</span>
       )}

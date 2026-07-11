@@ -32,8 +32,11 @@ export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent')
     await assertFeature(ctx.accountId, 'automations')
-    const { count } = await supabaseAdmin().from('automations').select('id', { count: 'exact', head: true }).eq('account_id', ctx.accountId)
-    await assertWithinLimit(ctx.accountId, 'automations', count ?? 0)
+    // Limits apply to active automations; drafts remain editable after a downgrade.
+    if ((await request.clone().json().catch(() => null))?.is_active) {
+      const { count } = await supabaseAdmin().from('automations').select('id', { count: 'exact', head: true }).eq('account_id', ctx.accountId).eq('is_active', true)
+      await assertWithinLimit(ctx.accountId, 'automations', count ?? 0)
+    }
   } catch (err) {
     return toErrorResponse(err)
   }
