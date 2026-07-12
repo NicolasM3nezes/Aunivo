@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isV1DisabledApi, isV1DisabledPage } from '@/config/features'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -42,6 +43,23 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
+  if (isV1DisabledApi(request.nextUrl.pathname)) {
+    if (!user) {
+      return withRefreshedCookies(NextResponse.json({ error: 'UNAUTHORIZED', message: 'Sua sessão expirou. Entre novamente.' }, { status: 401 }))
+    }
+    return withRefreshedCookies(NextResponse.json({
+      error: 'FEATURE_DISABLED',
+      message: 'Este recurso não está disponível na versão atual do Aunivo.',
+    }, { status: 403 }))
+  }
+
+  if (isV1DisabledPage(request.nextUrl.pathname)) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    url.search = 'recurso=indisponivel'
+    return withRefreshedCookies(NextResponse.redirect(url))
+  }
+
   // Auth pages - redirect to dashboard if already logged in.
   // Exception: when an invite token is in the query string we
   // send the already-signed-in user to /join/<token> instead so
@@ -72,7 +90,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings', '/configuracoes', '/assinatura']
+  const protectedPaths = ['/dashboard', '/contacts', '/pipelines', '/reports', '/settings', '/configuracoes', '/assinatura']
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

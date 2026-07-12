@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   RAIL_GROUPS,
   SECTION_META,
-  SETTINGS_SECTIONS,
+  V1_SETTINGS_SECTIONS,
   type SettingsSection,
 } from './settings-sections';
 
@@ -34,6 +34,10 @@ export function SettingsRail({
 }) {
   const t = useTranslations('Settings');
   const activeRef = useRef<HTMLButtonElement>(null);
+  const visibleGroups = RAIL_GROUPS.map((group) => ({
+    ...group,
+    items: V1_SETTINGS_SECTIONS.filter((section) => SECTION_META[section].group === group.group),
+  })).filter((group) => group.items.length > 0);
 
   // When horizontal (mobile), keep the active chip in view. On desktop
   // the rail is a static column, so skip.
@@ -55,8 +59,8 @@ export function SettingsRail({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {RAIL_GROUPS.map(({ group }) =>
-              SETTINGS_SECTIONS.filter((section) => SECTION_META[section].group === group).map((section) => {
+            {visibleGroups.map(({ items }) =>
+              items.map((section) => {
                 const Icon = SECTION_META[section].icon;
                 return <SelectItem key={section} value={section}><span className="flex items-center gap-2"><Icon className="size-4" />{t(`sections.${section}`)}</span></SelectItem>;
               }),
@@ -71,10 +75,7 @@ export function SettingsRail({
         'rounded-2xl border border-border bg-card p-2 shadow-sm',
       )}
     >
-      {RAIL_GROUPS.map(({ label, group }) => {
-        const items = SETTINGS_SECTIONS.filter(
-          (s) => SECTION_META[s].group === group,
-        );
+      {visibleGroups.map(({ label, group, items }) => {
         return (
           <div
             key={group}

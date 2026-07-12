@@ -108,6 +108,11 @@ export interface Contact {
   email?: string;
   company?: string;
   avatar_url?: string;
+  estimated_value?: number | null;
+  last_contact_at?: string | null;
+  next_follow_up_at?: string | null;
+  lead_source?: string | null;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
   /** Hydrated by queries that embed `contact_tags(tags(*))` (e.g. the

@@ -44,6 +44,7 @@ export const SETTINGS_SECTIONS = [
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 export const DEFAULT_SECTION: SettingsSection = 'overview';
+export const V1_SETTINGS_SECTIONS: readonly SettingsSection[] = ['overview','profile','security','appearance','fields','deals','billing'];
 
 /** Rail grouping. `adminOnly` items are hidden for non-admins. */
 export interface SectionMeta {
@@ -93,6 +94,6 @@ export function resolveSection(raw: string | null): SettingsSection {
   if (raw === 'tags' || raw === 'custom-fields') return 'fields';
   if (raw === 'ai-config' || raw === 'agents') return 'ai';
   if (raw === 'knowledge-base') return 'knowledge';
-  if (isSection(raw)) return raw;
+  if (isSection(raw) && V1_SETTINGS_SECTIONS.includes(raw)) return raw;
   return DEFAULT_SECTION;
 }

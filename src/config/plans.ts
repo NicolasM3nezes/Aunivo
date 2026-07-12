@@ -7,16 +7,16 @@ export const PLAN_DISPLAY: Record<
 > = {
   free: {
     name: PLAN_DISPLAY_NAMES.free,
-    price: 'R$ 12,90/mês',
-    description: 'O essencial para organizar seu atendimento comercial.',
-    cta: 'Começar com o Basic',
+    price: '14 dias grátis',
+    description: 'Teste o Aunivo V1 sem cobrança automática.',
+    cta: 'Testar grátis',
   },
   pro: {
     name: PLAN_DISPLAY_NAMES.pro,
     price: 'R$ 39,90/mês',
     description:
-      'Automação e inteligência artificial para acelerar suas vendas.',
-    cta: 'Assinar Pro',
+      'CRM completo para organizar clientes, vendas e retornos.',
+    cta: 'Começar agora',
   },
   business: {
     name: PLAN_DISPLAY_NAMES.business,

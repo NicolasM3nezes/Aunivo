@@ -1,234 +1,34 @@
-"use client"
+'use client';
+import { useCallback,useEffect,useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { formatCurrency } from '@/lib/currency';
+import { normalizeError } from '@/lib/errors/normalize-error';
+import { loadV1Dashboard,type V1DashboardSummary } from '@/lib/dashboard/v1-summary';
+import { Card,CardContent,CardHeader,CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { SkeletonCard } from '@/components/dashboard/skeleton';
+import { formatBrazilianPhone } from '@/lib/phone';
+import { ArrowRight,BriefcaseBusiness,CircleDollarSign,ContactRound,Plus,Target,Trophy,Users } from 'lucide-react';
 
-import { useCallback, useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/hooks/use-auth'
-import { formatCurrency } from '@/lib/currency'
-import {
-  MessageSquare,
-  UserPlus,
-  DollarSign,
-  Send,
-} from 'lucide-react'
-
-import {
-  loadActivity,
-  loadConversationsSeries,
-  loadMetrics,
-  loadPipelineDonut,
-  loadResponseTime,
-} from '@/lib/dashboard/queries'
-import type {
-  ActivityItem,
-  ConversationsSeriesPoint,
-  MetricsBundle,
-  PipelineDonutData,
-  ResponseTimeSummary,
-} from '@/lib/dashboard/types'
-
-import { MetricCard } from '@/components/dashboard/metric-card'
-import { SkeletonCard } from '@/components/dashboard/skeleton'
-import { QuickActions } from '@/components/dashboard/quick-actions'
-import { ConversationsChart } from '@/components/dashboard/conversations-chart'
-import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
-import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
-import { ActivityFeed } from '@/components/dashboard/activity-feed'
-
-import { useTranslations } from 'next-intl'
-
-type RangeDays = 7 | 30 | 90
-
-export default function DashboardPage() {
-  const t = useTranslations('Dashboard.page')
-  const { defaultCurrency } = useAuth()
-  const [metrics, setMetrics] = useState<MetricsBundle | null>(null)
-  const [metricsLoading, setMetricsLoading] = useState(true)
-
-  const [range, setRange] = useState<RangeDays>(30)
-  // Keep a cache per range so switching tabs doesn't re-fetch what we
-  // already have. Ranges the user hasn't opened yet stay null and
-  // trigger a fetch on first view.
-  const [series, setSeries] = useState<Record<RangeDays, ConversationsSeriesPoint[] | null>>({
-    7: null,
-    30: null,
-    90: null,
-  })
-  const [seriesLoading, setSeriesLoading] = useState(true)
-
-  const [pipeline, setPipeline] = useState<PipelineDonutData | null>(null)
-  const [pipelineLoading, setPipelineLoading] = useState(true)
-
-  const [responseTime, setResponseTime] = useState<ResponseTimeSummary | null>(null)
-  const [responseTimeLoading, setResponseTimeLoading] = useState(true)
-
-  const [activity, setActivity] = useState<ActivityItem[] | null>(null)
-  const [activityLoading, setActivityLoading] = useState(true)
-
-  const loadAll = useCallback(() => {
-    const db = createClient()
-
-    // Kick everything off in parallel. Each block has its own
-    // setState + finally so a slow query doesn't hold up faster
-    // sections — each widget shows its own skeleton independently.
-    void loadMetrics(db)
-      .then((m) => setMetrics(m))
-      .catch((err) => console.error('[dashboard] metrics failed:', err))
-      .finally(() => setMetricsLoading(false))
-
-    void loadConversationsSeries(db, 30)
-      .then((s) => setSeries((prev) => ({ ...prev, 30: s })))
-      .catch((err) => console.error('[dashboard] series failed:', err))
-      .finally(() => setSeriesLoading(false))
-
-    void loadPipelineDonut(db)
-      .then((p) => setPipeline(p))
-      .catch((err) => console.error('[dashboard] pipeline failed:', err))
-      .finally(() => setPipelineLoading(false))
-
-    void loadResponseTime(db)
-      .then((r) => setResponseTime(r))
-      .catch((err) => console.error('[dashboard] response time failed:', err))
-      .finally(() => setResponseTimeLoading(false))
-
-    // Fetch up to 50 so the biggest page-size option in the feed
-    // (50 rows) is already in memory — switching sizes then becomes
-    // a pure client-side slice with no extra round trip.
-    void loadActivity(db, 50)
-      .then((a) => setActivity(a))
-      .catch((err) => console.error('[dashboard] activity failed:', err))
-      .finally(() => setActivityLoading(false))
-  }, [])
-
-  useEffect(() => {
-    loadAll()
-  }, [loadAll])
-
-  // Range switch handler — kept in an event callback (not an effect)
-  // so the setState calls stay out of the react-hooks/set-state-in-effect
-  // rule's way. The cached bucket check means switching back to a
-  // previously-viewed range is instant and doesn't re-fetch.
-  const handleRangeChange = useCallback(
-    (r: RangeDays) => {
-      setRange(r)
-      if (series[r] !== null) return
-      setSeriesLoading(true)
-      const db = createClient()
-      loadConversationsSeries(db, r)
-        .then((s) => setSeries((prev) => ({ ...prev, [r]: s })))
-        .catch((err) => console.error('[dashboard] series failed:', err))
-        .finally(() => setSeriesLoading(false))
-    },
-    [series],
-  )
-
-  return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('description')}
-        </p>
-      </div>
-
-      {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {metricsLoading || !metrics ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
-            <MetricCard
-              title={t('activeConversations')}
-              value={metrics.activeConversations.current.toLocaleString()}
-              icon={MessageSquare}
-              delta={{
-                sign: metrics.activeConversations.previous,
-                label: deltaLabel(
-                  metrics.activeConversations.previous, 
-                  t('newTodayVsYesterday'), 
-                  t('noChange', { suffix: t('newTodayVsYesterday') })
-                ),
-              }}
-            />
-            <MetricCard
-              title={t('newContactsToday')}
-              value={metrics.newContactsToday.current.toLocaleString()}
-              icon={UserPlus}
-              delta={{
-                sign:
-                  metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                label: deltaLabel(
-                  metrics.newContactsToday.current - metrics.newContactsToday.previous,
-                  t('vsYesterday'),
-                  t('noChange', { suffix: t('vsYesterday') })
-                ),
-              }}
-            />
-            <MetricCard
-              title={t('openDealsValue')}
-              value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
-              icon={DollarSign}
-              subtitle={t('openDeals', { count: metrics.openDealsCount })}
-            />
-            <MetricCard
-              title={t('messagesSentToday')}
-              value={metrics.messagesSentToday.current.toLocaleString()}
-              icon={Send}
-              delta={{
-                sign:
-                  metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
-                label: deltaLabel(
-                  metrics.messagesSentToday.current - metrics.messagesSentToday.previous,
-                  t('vsYesterday'),
-                  t('noChange', { suffix: t('vsYesterday') })
-                ),
-              }}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Quick actions */}
-      <QuickActions />
-
-      {/* Charts row */}
-      {/* items-stretch (the grid default) stretches the two columns to
-          match the tallest sibling; adding h-full on each wrapper and
-          on the inner panels makes both cards actually fill that
-          stretched height so their rounded borders line up. Without
-          this, the pipeline card rendered at its natural (shorter)
-          height while the line chart drove the row height. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="h-full lg:col-span-3">
-          <ConversationsChart
-            series={series}
-            loading={seriesLoading}
-            range={range}
-            onRangeChange={handleRangeChange}
-          />
-        </div>
-        <div className="h-full lg:col-span-2">
-          <PipelineDonut
-            data={pipeline}
-            loading={pipelineLoading}
-            currency={defaultCurrency}
-          />
-        </div>
-      </div>
-
-      {/* Response time */}
-      <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
-
-      {/* Activity feed */}
-      <ActivityFeed items={activity} loading={activityLoading} />
-    </div>
-  )
-}
-
-// ------------------------------------------------------------
-
-function deltaLabel(delta: number, suffix: string, noChangeLabel: string): string {
-  if (delta === 0) return noChangeLabel
-  const sign = delta > 0 ? '+' : ''
-  return `${sign}${delta.toLocaleString()} ${suffix}`
+export default function DashboardPage(){
+  const {accountId,profile,profileLoading,defaultCurrency}=useAuth(); const params=useSearchParams();
+  const [data,setData]=useState<V1DashboardSummary|null>(null); const [loading,setLoading]=useState(true); const [errorMessage,setErrorMessage]=useState<string|null>(null);
+  const loadDashboard=useCallback(async()=>{if(!accountId)return;setLoading(true);setErrorMessage(null);try{setData(await loadV1Dashboard(createClient(),accountId));}catch(error:unknown){const normalized=normalizeError(error);console.error('[dashboard] Falha ao carregar:',{message:normalized.message,code:normalized.code});setErrorMessage('Não foi possível carregar a visão geral.');}finally{setLoading(false);}},[accountId]);
+  useEffect(()=>{if(profileLoading)return;if(!accountId){setLoading(false);setErrorMessage('Não foi possível carregar a visão geral.');return;}void loadDashboard();},[accountId,profileLoading,loadDashboard]);
+  const closed=(data?.wonDeals??0)+(data?.lostDeals??0);const conversion=closed?(data?.wonDeals??0)/closed:0;const percent=new Intl.NumberFormat('pt-BR',{style:'percent',maximumFractionDigits:1});
+  const metrics=data?[['Total de contatos',data.totalContacts,Users,'Sua base de clientes'],['Novos no mês',data.newContacts,ContactRound,'Contatos cadastrados'],['Oportunidades abertas',data.openOpportunities,BriefcaseBusiness,'Negociações em andamento'],['Valor em negociação',formatCurrency(data.pipelineValue,defaultCurrency),CircleDollarSign,'Potencial do funil'],['Negócios ganhos',data.wonDeals,Trophy,'Vendas concluídas'],['Taxa de conversão',percent.format(conversion),Target,'Ganhos entre finalizados']] as const:[];
+  const firstName=profile?.full_name?.trim().split(/\s+/)[0]||'bem-vindo';
+  return <div className="space-y-6"><div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/15 via-card to-card p-5 sm:p-7"><div className="absolute -right-16 -top-20 size-56 rounded-full bg-primary/10 blur-3xl"/><div className="relative flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><div><p className="text-sm font-medium text-primary">Visão geral</p><h1 className="mt-1 text-3xl font-bold tracking-tight">Olá, {firstName} 👋</h1><p className="mt-2 text-muted-foreground">Acompanhe seus contatos, oportunidades e retornos em um só lugar.</p></div><div className="flex flex-col gap-2 sm:flex-row"><Button render={<Link href="/contacts"/>}><Plus className="size-4"/>Adicionar contato</Button><Button variant="outline" render={<Link href="/pipelines"/>}>Ver funil<ArrowRight className="size-4"/></Button></div></div></div>
+    {params.get('recurso')?<div role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">Este recurso não está disponível na versão atual do Aunivo.</div>:null}
+    {errorMessage?<div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-5"><p>{errorMessage}</p><Button className="mt-3" variant="outline" onClick={()=>void loadDashboard()}>Tentar novamente</Button></div>:null}
+    {!errorMessage&&loading?<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{Array.from({length:8},(_,i)=><SkeletonCard key={i}/>)}</div>:null}
+    {!errorMessage&&!loading&&data?<><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{metrics.map(([title,value,Icon,description])=><Card key={title} className="overflow-hidden"><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">{title}</CardTitle><span className="rounded-xl bg-primary/10 p-2.5 text-primary"><Icon className="size-5"/></span></CardHeader><CardContent><p className="text-3xl font-bold tracking-tight">{value}</p><p className="mt-1 text-xs text-muted-foreground">{description}</p></CardContent></Card>)}</div>
+    <div className="grid gap-4 lg:grid-cols-2"><Card className="border-primary/20"><CardHeader><CardTitle className="flex items-center justify-between">Retornos de hoje <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{data.followUpsToday} hoje · {data.overdueFollowUps} atrasados</span></CardTitle></CardHeader><CardContent>{data.followUps.length?<div className="space-y-3">{data.followUps.map(item=><Link key={item.id} href={`/contacts?contact=${item.id}`} className="flex flex-col justify-between gap-2 rounded-xl border p-3 transition-colors hover:bg-muted/60 sm:flex-row sm:items-center"><span><span className="block font-medium">{item.name||'Contato'}</span><span className="text-xs text-muted-foreground">{[item.company,formatBrazilianPhone(item.phone)].filter(Boolean).join(' · ')}</span></span><span className="text-sm text-muted-foreground">{new Date(item.next_follow_up_at).toLocaleString('pt-BR')}</span></Link>)}</div>:<p className="text-muted-foreground">Nenhum retorno agendado para hoje.</p>}</CardContent></Card>
+    <Card><CardHeader><CardTitle>Resumo do funil</CardTitle></CardHeader><CardContent className="space-y-4">{[['Em aberto',data.openOpportunities,'bg-primary'],['Ganhos',data.wonDeals,'bg-emerald-500'],['Perdidos',data.lostDeals,'bg-red-500']].map(([label,value,color])=>{const total=Math.max(1,data.openOpportunities+data.wonDeals+data.lostDeals);return <div key={label}><div className="mb-1 flex justify-between text-sm"><span>{label}</span><strong>{value}</strong></div><div className="h-2 rounded-full bg-muted"><div className={`h-full rounded-full ${color}`} style={{width:`${Number(value)/total*100}%`}}/></div></div>})}</CardContent></Card></div>
+    <Card><CardHeader><CardTitle>Contatos recentes</CardTitle></CardHeader><CardContent>{data.recentContacts.length?<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{data.recentContacts.map(item=><Link key={item.id} href={`/contacts?contact=${item.id}`} className="flex justify-between rounded-xl border p-3 hover:bg-muted/60"><span>{item.name||formatBrazilianPhone(item.phone)}</span><span className="text-sm text-muted-foreground">{new Date(item.created_at).toLocaleDateString('pt-BR')}</span></Link>)}</div>:<p className="text-muted-foreground">Você ainda não possui contatos.</p>}</CardContent></Card>
+    {data.totalContacts===0?<div className="rounded-xl border p-8 text-center"><p>Cadastre seu primeiro contato para começar a acompanhar suas oportunidades.</p><Button className="mt-4" render={<Link href="/contacts"/>}>Adicionar contato</Button></div>:null}</>:null}
+  </div>;
 }

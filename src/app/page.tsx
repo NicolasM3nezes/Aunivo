@@ -35,9 +35,9 @@ import {
 } from '@/components/ui/accordion';
 
 export const metadata: Metadata = {
-  title: 'Aunivo - CRM e automação para vendas no WhatsApp',
+  title: 'Aunivo — CRM simples para pequenas empresas',
   description:
-    'Centralize conversas, qualifique leads e automatize o atendimento comercial no WhatsApp com o Aunivo.',
+    'Organize seus clientes, acompanhe suas vendas e nunca mais perca uma oportunidade.',
   alternates: {
     canonical: '/',
   },
@@ -45,44 +45,41 @@ export const metadata: Metadata = {
 
 const benefits = [
   {
-    title: 'Atendimento contínuo',
-    description: 'Sua operação disponível mesmo fora do horário comercial.',
+    title: 'Contatos centralizados',
+    description: 'Dados, observações e histórico reunidos em um só lugar.',
     icon: Clock3,
   },
   {
-    title: 'Respostas mais rápidas',
-    description: 'Menos espera e mais agilidade em cada conversa.',
+    title: 'Retornos no prazo',
+    description: 'Saiba quais clientes precisam de acompanhamento.',
     icon: MessageCircle,
   },
   {
-    title: 'Leads organizados',
-    description: 'Contatos, etapas e contexto reunidos automaticamente.',
+    title: 'Vendas organizadas',
+    description: 'Contatos, etapas e oportunidades sempre visíveis.',
     icon: UserRoundCheck,
   },
   {
-    title: 'Mais foco em vendas',
-    description: 'Sua equipe cuida do que realmente exige atenção humana.',
+    title: 'Mais foco no cliente',
+    description: 'Priorize negociações e não perca oportunidades.',
     icon: Sparkles,
   },
 ] as const;
 
 const features = [
   {
-    title: 'Atendimento com IA',
-    description:
-      'Respostas contextualizadas, alinhadas ao seu negócio e com transferência para a equipe quando necessário.',
+    title: 'Gestão de contatos',
+    description: 'Organize clientes, empresas, telefones, e-mails e observações.',
     icon: Bot,
   },
   {
-    title: 'Qualificação automática',
-    description:
-      'Colete informações importantes e identifique oportunidades antes da abordagem comercial.',
+    title: 'Lembretes de retorno',
+    description: 'Agende o próximo contato e veja retornos de hoje e atrasados.',
     icon: UserRoundCheck,
   },
   {
-    title: 'Caixa de entrada compartilhada',
-    description:
-      'Centralize conversas, responsáveis, notas e histórico em uma única operação.',
+    title: 'Histórico do cliente',
+    description: 'Mantenha observações e o contexto comercial de cada cliente.',
     icon: Inbox,
   },
   {
@@ -92,27 +89,23 @@ const features = [
     icon: BarChart3,
   },
   {
-    title: 'Automações comerciais',
-    description:
-      'Crie gatilhos, condições, esperas e ações para reduzir tarefas repetitivas.',
+    title: 'Dashboard simples',
+    description: 'Acompanhe contatos, negociações, resultados e retornos.',
     icon: Workflow,
   },
   {
-    title: 'Campanhas no WhatsApp',
-    description:
-      'Organize comunicações em escala com modelos e acompanhamento de entrega.',
+    title: 'Relatórios comerciais',
+    description: 'Visualize ganhos, perdas, valores e ticket médio.',
     icon: MessagesSquare,
   },
   {
-    title: 'Fluxos inteligentes',
-    description:
-      'Construa jornadas com escolhas, botões e regras para orientar cada contato.',
+    title: 'Etiquetas',
+    description: 'Classifique e filtre contatos conforme sua operação.',
     icon: Zap,
   },
   {
-    title: 'Indicadores operacionais',
-    description:
-      'Acompanhe volume, tempo de resposta e atividade comercial em um painel claro.',
+    title: 'Organização de oportunidades',
+    description: 'Registre valores e acompanhe cada próximo passo comercial.',
     icon: BarChart3,
   },
 ] as const;
@@ -129,18 +122,18 @@ const audiences = [
 const steps = [
   {
     number: '01',
-    title: 'Conecte seu canal',
-    text: 'Configure sua conta do WhatsApp Business e prepare sua operação.',
+    title: 'Crie sua conta',
+    text: 'Configure sua empresa e comece seu teste grátis.',
   },
   {
     number: '02',
-    title: 'Ensine sobre sua empresa',
-    text: 'Adicione serviços, contexto, linguagem e regras de atendimento.',
+    title: 'Cadastre seus contatos',
+    text: 'Centralize clientes, observações e valores estimados.',
   },
   {
     number: '03',
-    title: 'Atenda e qualifique',
-    text: 'A IA responde, coleta informações e organiza cada contato.',
+    title: 'Organize e acompanhe',
+    text: 'Mova oportunidades no funil e agende os próximos retornos.',
   },
   {
     number: '04',
@@ -161,8 +154,8 @@ const plans = [
       '1 usuário',
       'Organização de contatos',
       'Funil básico',
-      'Caixa de entrada compartilhada',
-      'Recursos essenciais de atendimento',
+      'Próximos retornos',
+      'Relatórios básicos',
     ],
     cta: PLAN_DISPLAY.free.cta,
     href: '/cadastro?plan=free',
@@ -176,12 +169,12 @@ const plans = [
     suffix: '',
     description: PLAN_DISPLAY.pro.description,
     features: [
-      'Até 3 usuários',
-      'Atendimento com IA',
-      'Automações comerciais',
-      'Funil de vendas completo',
-      'Campanhas e fluxos',
-      'Indicadores operacionais',
+      '1 usuário',
+      'Gestão de contatos',
+      'Funil de vendas',
+      'Follow-up e histórico',
+      'Etiquetas',
+      'Relatórios básicos',
     ],
     cta: PLAN_DISPLAY.pro.cta,
     href: '/planos',
@@ -211,27 +204,27 @@ const plans = [
 const faqs = [
   [
     'O que é o Aunivo?',
-    'O Aunivo é uma plataforma de atendimento e automação comercial que centraliza conversas, contatos, oportunidades e processos do WhatsApp em uma única operação.',
+    'O Aunivo é um CRM simples e moderno para pequenas empresas organizarem clientes, negociações e próximos retornos.',
   ],
   [
-    'Preciso trocar meu número de WhatsApp?',
-    'A configuração utiliza a API oficial do WhatsApp Business. A disponibilidade do número atual depende das regras e da configuração da sua conta Meta.',
+    'Preciso instalar alguma coisa?',
+    'Não. O Aunivo funciona no navegador e pode ser acessado em computador, tablet ou celular.',
   ],
   [
-    'O Aunivo substitui totalmente um atendente?',
-    'Não. A automação cuida de etapas repetitivas e direciona situações que exigem contexto, negociação ou decisão humana.',
+    'Para quem o Aunivo foi criado?',
+    'Para pequenas empresas que precisam organizar clientes, vendas e retornos sem depender de planilhas.',
   ],
   [
     'Qual é o plano mais acessível?',
     `O plano ${PLAN_DISPLAY.free.name} custa ${PLAN_DISPLAY.free.price} e oferece os recursos essenciais para começar a organizar o atendimento com o Aunivo.`,
   ],
   [
-    'Como funciona a inteligência artificial?',
-    'Você configura o contexto da empresa, orientações e uma base de conhecimento. A IA usa essas informações para responder dentro das regras definidas.',
+    'Como funcionam os retornos?',
+    'Você agenda a próxima data no contato e acompanha no dashboard o que vence hoje ou está atrasado.',
   ],
   [
     'O Aunivo serve para pequenas empresas?',
-    'Sim. O produto foi pensado para empresas e equipes que usam o WhatsApp como canal importante de atendimento e vendas.',
+    'Sim. O produto foi pensado especialmente para pequenas empresas que desejam um CRM simples.',
   ],
   [
     'Como funciona o plano Business?',
@@ -256,19 +249,18 @@ export default function HomePage() {
             <div>
               <div className="border-primary/20 bg-primary/[0.07] text-primary mb-7 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium shadow-sm">
                 <Sparkles className="size-4" />
-                IA que conversa, organiza e vende
+                CRM simples para pequenas empresas
               </div>
 
               <h1 className="text-foreground max-w-3xl text-4xl font-bold tracking-[-.045em] sm:text-5xl lg:text-[4rem] lg:leading-[1.04]">
-                Transforme conversas em{' '}
+                Organize seus clientes e{' '}
                 <span className="from-primary bg-gradient-to-r via-blue-500 to-emerald-400 bg-clip-text text-transparent">
-                  oportunidades reais de venda
+                  acompanhe cada oportunidade de venda
                 </span>
               </h1>
 
               <p className="text-muted-foreground mt-6 max-w-2xl text-lg leading-8 sm:text-xl">
-                O Aunivo responde, qualifica, organiza e acompanha seus leads
-                para sua empresa vender mais sem depender de tarefas manuais.
+                Controle contatos, negociações e próximos retornos em um só lugar.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">

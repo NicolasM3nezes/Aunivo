@@ -21,6 +21,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
+import { isValidBrazilianPhone, normalizePhone } from '@/lib/phone';
+import { normalizeError } from '@/lib/errors/normalize-error';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle } from 'lucide-react';
@@ -54,6 +57,9 @@ export function ContactForm({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
+  const [estimatedValue, setEstimatedValue] = useState('');
+  const [lastContactAt, setLastContactAt] = useState('');
+  const [nextFollowUpAt, setNextFollowUpAt] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Duplicate-phone detection for NEW contacts. `exact` (same digits)
@@ -75,6 +81,9 @@ export function ContactForm({
       setPhone(contact?.phone ?? '');
       setEmail(contact?.email ?? '');
       setCompany(contact?.company ?? '');
+      setEstimatedValue(contact?.estimated_value?.toString() ?? '');
+      setLastContactAt(contact?.last_contact_at?.slice(0, 16) ?? '');
+      setNextFollowUpAt(contact?.next_follow_up_at?.slice(0, 16) ?? '');
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       setDupMatch(null);
       fetchTags();
@@ -124,6 +133,14 @@ export function ContactForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    if (!name.trim()) {
+      toast.error('Informe o nome do contato.');
+      return;
+    }
+    if (!isValidBrazilianPhone(phone)) {
+      toast.error('Informe um telefone válido com DDD.');
+      return;
+    }
     if (!phone.trim()) {
       toast.error(t('phoneRequired'));
       return;
@@ -152,13 +169,17 @@ export function ContactForm({
         const { error } = await supabase
           .from('contacts')
           .update({
-            name: name.trim() || null,
-            phone: phone.trim(),
+            name: name.trim(),
+            phone: normalizePhone(phone),
             email: email.trim() || null,
             company: company.trim() || null,
+            estimated_value: estimatedValue ? Number(estimatedValue) : null,
+            last_contact_at: lastContactAt ? new Date(lastContactAt).toISOString() : null,
+            next_follow_up_at: nextFollowUpAt ? new Date(nextFollowUpAt).toISOString() : null,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', contactId);
+          .eq('id', contactId)
+          .eq('account_id', accountId);
         if (error) throw error;
       } else {
         const { data, error } = await supabase
@@ -166,10 +187,13 @@ export function ContactForm({
           .insert({
             user_id: user.id,
             account_id: accountId,
-            name: name.trim() || null,
-            phone: phone.trim(),
+            name: name.trim(),
+            phone: normalizePhone(phone),
             email: email.trim() || null,
             company: company.trim() || null,
+            estimated_value: estimatedValue ? Number(estimatedValue) : null,
+            last_contact_at: lastContactAt ? new Date(lastContactAt).toISOString() : null,
+            next_follow_up_at: nextFollowUpAt ? new Date(nextFollowUpAt).toISOString() : null,
           })
           .select('id')
           .single();
@@ -216,8 +240,9 @@ export function ContactForm({
         }
         return;
       }
-      const message = err instanceof Error ? err.message : t('toastError');
-      toast.error(message);
+      const normalized = normalizeError(err);
+      console.error('[contacts:save]', { message: normalized.message, code: normalized.code });
+      toast.error('Não foi possível salvar o contato. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -240,13 +265,14 @@ export function ContactForm({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cf-name" className="text-muted-foreground">
-              {t('nameLabel')}
+              {t('nameLabel')} <span className="text-red-400">*</span>
             </Label>
             <Input
               id="cf-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t('namePlaceholder')}
+              required
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
@@ -255,7 +281,7 @@ export function ContactForm({
             <Label htmlFor="cf-phone" className="text-muted-foreground">
               {t('phoneLabel')} <span className="text-red-400">*</span>
             </Label>
-            <Input
+            <PhoneInput
               id="cf-phone"
               value={phone}
               onChange={(e) => {
@@ -264,6 +290,7 @@ export function ContactForm({
               }}
               onBlur={checkDuplicate}
               placeholder={t('phonePlaceholder')}
+              required
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
             {dupMatch ? (
@@ -324,6 +351,21 @@ export function ContactForm({
               placeholder={t('companyPlaceholder')}
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="cf-value">Valor estimado (R$)</Label>
+              <Input id="cf-value" type="number" min="0" step="0.01" value={estimatedValue} onChange={(e) => setEstimatedValue(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cf-last-contact">Último contato</Label>
+              <Input id="cf-last-contact" type="datetime-local" value={lastContactAt} onChange={(e) => setLastContactAt(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="cf-follow-up">Próximo retorno</Label>
+            <Input id="cf-follow-up" type="datetime-local" value={nextFollowUpAt} onChange={(e) => setNextFollowUpAt(e.target.value)} />
           </div>
 
           <div className="space-y-2">

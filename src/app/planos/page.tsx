@@ -28,7 +28,7 @@ import { PLAN_DISPLAY } from '@/config/plans';
 export const metadata: Metadata = {
   title: 'Planos e preços — Aunivo',
   description:
-    'Compare os planos Basic, Pro e Business do Aunivo para automatizar atendimento e vendas pelo WhatsApp.',
+    'Teste o Aunivo grátis e organize clientes, vendas e próximos retornos.',
   alternates: {
     canonical: '/planos',
   },
@@ -50,9 +50,9 @@ const plans = [
       '1 usuário',
       'Até 200 contatos',
       '1 funil de vendas',
-      '1 automação ativa',
-      '25 respostas de IA por mês',
-      'Caixa de entrada compartilhada',
+      'Próximos retornos',
+      'Histórico de clientes',
+      'Relatórios básicos',
     ],
   },
   {
@@ -67,14 +67,13 @@ const plans = [
     featured: true,
     icon: Crown,
     features: [
-      'Até 3 usuários',
+      '1 usuário',
       'Até 5.000 contatos',
-      'Até 5 funis',
-      'Até 25 automações',
-      '2.000 respostas de IA por mês',
-      'Campanhas e fluxos inteligentes',
-      'Base de conhecimento',
-      'Indicadores operacionais',
+      '1 funil de vendas',
+      'Follow-up',
+      'Histórico de clientes',
+      'Etiquetas',
+      'Dashboard e relatórios básicos',
     ],
   },
   {
@@ -91,9 +90,9 @@ const plans = [
     features: [
       'Usuários personalizados',
       'Volume de contatos sob medida',
-      'Funis e automações avançadas',
-      'Maior capacidade de IA',
-      'API, webhooks e MCP',
+      'Configuração comercial personalizada',
+      'Maior capacidade de contatos',
+      'Acompanhamento de implantação',
       'Implantação personalizada',
       'Suporte prioritário',
       'Condições comerciais especiais',
@@ -145,13 +144,13 @@ const faqs = [
   {
     value: 'pro',
     question: `O plano ${PLAN_DISPLAY.pro.name} custa ${PLAN_DISPLAY.pro.price}?`,
-    answer: `Sim. O plano ${PLAN_DISPLAY.pro.name} custa ${PLAN_DISPLAY.pro.price} e é indicado para pequenas equipes que querem usar automações, IA, campanhas e recursos comerciais mais completos.`,
+    answer: `Sim. O plano ${PLAN_DISPLAY.pro.name} custa ${PLAN_DISPLAY.pro.price} e inclui contatos, funil, follow-up, histórico, etiquetas, dashboard e relatórios básicos.`,
   },
   {
     value: 'business',
     question: 'Como funciona o preço do Business?',
     answer:
-      'O Business é personalizado. O valor depende do número de usuários, volume de contatos, capacidade de IA, implantação e necessidades específicas da empresa.',
+      'O Business é tratado diretamente com nossa equipe e depende das necessidades específicas da empresa.',
   },
   {
     value: 'change',
@@ -185,15 +184,14 @@ export default function PlansPage() {
             </div>
 
             <h1 className="mx-auto mt-6 max-w-4xl text-4xl font-bold tracking-[-.045em] sm:text-5xl lg:text-6xl">
-              Escolha o plano que transforma seu WhatsApp em uma{' '}
+              Organize seus clientes e transforme sua rotina em uma{' '}
               <span className="from-primary bg-gradient-to-r via-blue-500 to-emerald-400 bg-clip-text text-transparent">
                 operação comercial de verdade
               </span>
             </h1>
 
             <p className="text-muted-foreground mx-auto mt-6 max-w-2xl text-lg leading-8">
-              Comece pelo Basic, automatize sua rotina com o Pro e avance para
-              uma estrutura personalizada quando sua empresa crescer.
+              Teste grátis por 14 dias e continue com o Aunivo Pro por R$ 39,90 por mês.
             </p>
 
             <div className="text-muted-foreground mt-8 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm">
