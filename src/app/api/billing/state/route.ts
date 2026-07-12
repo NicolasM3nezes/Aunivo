@@ -9,7 +9,7 @@ export async function GET() {
     const ctx = await getCurrentAccount()
     const entitlements = await getAccountEntitlements(ctx.accountId)
     if (ctx.role !== 'owner') return NextResponse.json({ entitlements, billing: null, canManage: false })
-    const { data, error } = await supabaseAdmin().from('account_billing').select('*').eq('account_id', ctx.accountId).single()
+    const { data, error } = await supabaseAdmin().from('account_billing').select('*').eq('account_id', ctx.accountId).maybeSingle()
     if (error) throw new Error(error.message)
     return NextResponse.json({ entitlements, billing: data, canManage: true })
   } catch (error) { return billingErrorResponse(error) }

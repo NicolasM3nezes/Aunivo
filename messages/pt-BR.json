@@ -178,6 +178,7 @@
       "draftHint": "Toque em ✨ para redigir uma resposta com AI – você pode editá-la antes de enviar",
       "sessionExpiredHint": "24-hora session expired. Use a modelo to re-engage.",
       "templates": "Modelos",
+      "quick-replies": "Respostas rápidas",
       "readOnlyPlaceholder": "Somente leitura – os espectadores podem navegar, mas não podem responder",
       "sessionExpiredPlaceholder": "Session expired - use a modelo",
       "typeMessagePlaceholder": "Digite uma mensagem... (Shift+Enter para quebrar a linha)",
