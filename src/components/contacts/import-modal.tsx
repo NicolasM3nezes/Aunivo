@@ -1,12 +1,15 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import {
-  dedupeByPhone,
-  isUniqueViolation,
-} from '@/lib/contacts/dedupe';
+import { dedupeByPhone, isUniqueViolation } from '@/lib/contacts/dedupe';
 import {
   parseContactCsv,
   type ParsedContactRow,
@@ -16,38 +19,86 @@ import {
   resolveImportTagIds,
   type ContactTagAssignment,
 } from '@/lib/contacts/resolve-import-tags';
+import { normalizeError } from '@/lib/errors/normalize-error';
+import { isValidBrazilianPhone, normalizePhone } from '@/lib/phone';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
-  Upload,
+  AlertTriangle,
+  CheckCircle,
   FileText,
   Loader2,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
   Tag,
+  Upload,
+  XCircle,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { isValidBrazilianPhone, normalizePhone } from '@/lib/phone';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
 const PREVIEW_LIMIT = 5;
+const INSERT_CHUNK_SIZE = 50;
+const LOOKUP_CHUNK_SIZE = 200;
+
+interface ImportModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onImported: () => void;
+}
+
+interface ImportResult {
+  imported: number;
+  skipped: number;
+  failed: number;
+  tagsAssigned: number;
+}
+
+interface PendingContact {
+  source: ParsedContactRow;
+  normalizedPhone: string;
+}
+
+interface InsertedContactRow {
+  id: string;
+  phone: string | null;
+  phone_normalized: string | null;
+}
+
+function normalizeTagKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function safeTagColor(value: string | null | undefined): string {
+  if (value && /^#[0-9a-f]{6}$/i.test(value)) return value;
+  return DEFAULT_TAG_COLOR;
+}
 
 function truncateFilename(name: string, max = 48): string {
   if (name.length <= max) return name;
+
   const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
   const base = name.slice(0, name.length - ext.length);
   const keep = max - ext.length - 1;
+
   return `${base.slice(0, Math.max(keep, 12))}…${ext}`;
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
 }
 
 function PreviewCell({
@@ -64,12 +115,20 @@ function PreviewCell({
       className={cn(
         'block truncate',
         maxWidth,
-        mono && 'font-mono text-[11px]'
+        mono && 'font-mono text-[11px]',
       )}
       title={value}
     >
       {value}
     </span>
+  );
+}
+
+function InlineCode({ children }: { children: ReactNode }) {
+  return (
+    <code className="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">
+      {children}
+    </code>
   );
 }
 
@@ -82,19 +141,32 @@ function ImportPreviewTags({
 }) {
   const t = useTranslations('Contacts.importModal');
 
-  if (tagNames.length === 0) {
+  const uniqueNames = useMemo(() => {
+    const seen = new Set<string>();
+
+    return tagNames.filter((name) => {
+      const key = normalizeTagKey(name);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [tagNames]);
+
+  if (uniqueNames.length === 0) {
     return <span className="text-muted-foreground">—</span>;
   }
 
   return (
     <div className="flex min-w-[4.5rem] flex-wrap gap-1">
-      {tagNames.map((name) => {
-        const color =
-          tagColorByKey.get(name.trim().toLowerCase()) ?? DEFAULT_TAG_COLOR;
-        const isKnown = tagColorByKey.has(name.trim().toLowerCase());
+      {uniqueNames.map((name) => {
+        const key = normalizeTagKey(name);
+        const knownColor = tagColorByKey.get(key);
+        const color = safeTagColor(knownColor);
+        const isKnown = Boolean(knownColor);
+
         return (
           <span
-            key={name}
+            key={key}
             className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-[10px] leading-none font-medium"
             style={{
               backgroundColor: `${color}18`,
@@ -115,285 +187,450 @@ function ImportPreviewTags({
   );
 }
 
-interface ImportModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onImported: () => void;
-}
-
 export function ImportModal({
   open,
   onOpenChange,
   onImported,
 }: ImportModalProps) {
   const t = useTranslations('Contacts.importModal');
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { accountId, canEditSettings } = useAuth();
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileReadSequenceRef = useRef(0);
 
   const [file, setFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<ParsedContactRow[]>([]);
   const [hasTagsColumn, setHasTagsColumn] = useState(false);
   const [hasCompanyColumn, setHasCompanyColumn] = useState(false);
   const [tagColorByKey, setTagColorByKey] = useState<Map<string, string>>(
-    new Map()
+    () => new Map(),
   );
+  const [parsingFile, setParsingFile] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{
-    imported: number;
-    skipped: number;
-    failed: number;
-    tagsAssigned: number;
-  } | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
 
   function reset() {
+    fileReadSequenceRef.current += 1;
     setFile(null);
     setParsedRows([]);
     setHasTagsColumn(false);
     setHasCompanyColumn(false);
     setTagColorByKey(new Map());
+    setParsingFile(false);
     setResult(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   }
 
   function handleOpenChange(next: boolean) {
+    if (!next && importing) return;
     if (!next) reset();
     onOpenChange(next);
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0];
+    if (!selected || importing) return;
+
+    const requestId = fileReadSequenceRef.current + 1;
+    fileReadSequenceRef.current = requestId;
 
     setFile(selected);
+    setParsedRows([]);
+    setHasTagsColumn(false);
+    setHasCompanyColumn(false);
+    setTagColorByKey(new Map());
     setResult(null);
+    setParsingFile(true);
 
-    const text = await selected.text();
-    const {
-      rows,
-      hasTagsColumn: csvHasTags,
-      hasCompanyColumn: csvHasCompany,
-    } = parseContactCsv(text);
+    try {
+      if (!selected.name.toLowerCase().endsWith('.csv')) {
+        throw new Error('Selecione um arquivo no formato CSV.');
+      }
 
-    if (rows.length === 0) {
-      toast.error(t('toastNoValidRows'));
+      const text = await selected.text();
+      if (fileReadSequenceRef.current !== requestId) return;
+
+      const {
+        rows,
+        hasTagsColumn: csvHasTags,
+        hasCompanyColumn: csvHasCompany,
+      } = parseContactCsv(text);
+
+      if (fileReadSequenceRef.current !== requestId) return;
+
+      if (rows.length === 0) {
+        toast.error(t('toastNoValidRows'));
+        return;
+      }
+
+      setParsedRows(rows);
+      setHasTagsColumn(csvHasTags);
+      setHasCompanyColumn(csvHasCompany);
+
+      if (!csvHasTags || !accountId) return;
+
+      const { data: tags, error } = await supabase
+        .from('tags')
+        .select('name, color')
+        .eq('account_id', accountId)
+        .order('name');
+
+      if (fileReadSequenceRef.current !== requestId) return;
+
+      if (error) {
+        const normalized = normalizeError(error);
+        console.error('[contacts:import:preview-tags]', {
+          message: normalized.message,
+          code: normalized.code,
+          details: normalized.details,
+          hint: normalized.hint,
+        });
+        return;
+      }
+
+      const colors = new Map<string, string>();
+
+      for (const tag of tags ?? []) {
+        const key = normalizeTagKey(tag.name);
+        if (key && !colors.has(key)) {
+          colors.set(key, safeTagColor(tag.color));
+        }
+      }
+
+      setTagColorByKey(colors);
+    } catch (error: unknown) {
+      if (fileReadSequenceRef.current !== requestId) return;
+
+      const normalized = normalizeError(error);
+      console.error('[contacts:import:parse]', {
+        message: normalized.message,
+        code: normalized.code,
+        details: normalized.details,
+        hint: normalized.hint,
+      });
+
+      toast.error(normalized.message || t('toastError'));
       setParsedRows([]);
       setHasTagsColumn(false);
       setHasCompanyColumn(false);
       setTagColorByKey(new Map());
-      return;
-    }
-
-    setParsedRows(rows);
-    setHasTagsColumn(csvHasTags);
-    setHasCompanyColumn(csvHasCompany);
-
-    if (csvHasTags && accountId) {
-      const { data: tags } = await supabase
-        .from('tags')
-        .select('name, color')
-        .eq('account_id', accountId);
-
-      const colors = new Map<string, string>();
-      for (const tag of tags ?? []) {
-        const key = tag.name.trim().toLowerCase();
-        if (!colors.has(key)) colors.set(key, tag.color);
+    } finally {
+      if (fileReadSequenceRef.current === requestId) {
+        setParsingFile(false);
       }
-      setTagColorByKey(colors);
-    } else {
-      setTagColorByKey(new Map());
     }
   }
 
+  async function loadExistingPhones(
+    currentAccountId: string,
+    phones: string[],
+  ): Promise<Set<string>> {
+    const existing = new Set<string>();
+
+    for (const phoneChunk of chunkArray(phones, LOOKUP_CHUNK_SIZE)) {
+      if (phoneChunk.length === 0) continue;
+
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('phone_normalized')
+        .eq('account_id', currentAccountId)
+        .in('phone_normalized', phoneChunk);
+
+      if (error) throw error;
+
+      for (const row of data ?? []) {
+        const phone = (row as { phone_normalized: string | null })
+          .phone_normalized;
+        if (phone) existing.add(normalizePhone(phone));
+      }
+    }
+
+    return existing;
+  }
+
+  async function insertContactIndividually(
+    row: PendingContact,
+    userId: string,
+    currentAccountId: string,
+  ): Promise<{ id: string | null; skipped: boolean }> {
+    const { data, error } = await supabase
+      .from('contacts')
+      .insert({
+        user_id: userId,
+        account_id: currentAccountId,
+        phone: row.normalizedPhone,
+        name: row.source.name?.trim() || null,
+        email: row.source.email?.trim() || null,
+        company: row.source.company?.trim() || null,
+      })
+      .select('id')
+      .single();
+
+    if (!error && data) {
+      return { id: data.id, skipped: false };
+    }
+
+    if (isUniqueViolation(error)) {
+      return { id: null, skipped: true };
+    }
+
+    if (error) {
+      const normalized = normalizeError(error);
+      console.error('[contacts:import:insert-row]', {
+        phone: row.normalizedPhone,
+        message: normalized.message,
+        code: normalized.code,
+        details: normalized.details,
+        hint: normalized.hint,
+      });
+    }
+
+    return { id: null, skipped: false };
+  }
+
   async function handleImport() {
-    if (parsedRows.length === 0) return;
+    if (
+      parsedRows.length === 0 ||
+      importing ||
+      parsingFile ||
+      !accountId
+    ) {
+      if (!accountId) toast.error(t('toastError'));
+      return;
+    }
+
+    const sourceRows = [...parsedRows];
+    const currentAccountId = accountId;
+
     setImporting(true);
 
     try {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) throw new Error('Not authenticated');
-      if (!accountId)
-        throw new Error('Perfil sem vínculo com uma conta.');
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+      if (!user) throw new Error('Usuário não autenticado.');
 
       let imported = 0;
       let skipped = 0;
       let failed = 0;
 
-      // 1) De-dupe within the file by normalized phone (keep first).
-      const { unique, duplicates: inFileDupes } = dedupeByPhone(parsedRows);
-      skipped += inFileDupes;
+      const { unique, duplicates: inFileDuplicates } =
+        dedupeByPhone(sourceRows);
+      skipped += inFileDuplicates;
 
-      // 2) Skip numbers already in this account. One read of the
-      //    generated `phone_normalized` column (migration 022) → Set.
-      const { data: existingRows } = await supabase
-        .from('contacts')
-        .select('phone_normalized')
-        .eq('account_id', accountId);
-      const existing = new Set(
-        (existingRows ?? [])
-          .map(
-            (r) => (r as { phone_normalized: string | null }).phone_normalized
-          )
-          .filter((p): p is string => !!p)
-          .map((phone) => normalizePhone(phone))
+      const validRows: PendingContact[] = [];
+
+      for (const row of unique) {
+        if (!isValidBrazilianPhone(row.phone)) {
+          failed += 1;
+          continue;
+        }
+
+        validRows.push({
+          source: row,
+          normalizedPhone: normalizePhone(row.phone),
+        });
+      }
+
+      const candidatePhones = Array.from(
+        new Set(validRows.map((row) => row.normalizedPhone)),
+      );
+      const existingPhones = await loadExistingPhones(
+        currentAccountId,
+        candidatePhones,
       );
 
-      const toInsert = unique.filter((row) => {
-        if (!isValidBrazilianPhone(row.phone)) {
-          failed++;
-          return false;
-        }
-        if (existing.has(normalizePhone(row.phone))) {
-          skipped++;
+      const contactsToInsert = validRows.filter((row) => {
+        if (existingPhones.has(row.normalizedPhone)) {
+          skipped += 1;
           return false;
         }
         return true;
       });
 
-      // 3) Resolve tag names → ids (admin+ may auto-create missing tags).
-      //    Skip the round-trip when the import carries no tag names.
-      const allTagNames = toInsert.flatMap((row) => row.tagNames);
-      let tagIdByKey = new Map<string, string>();
-      let skippedNames: string[] = [];
-      if (allTagNames.length > 0) {
-        ({ tagIdByKey, skippedNames } = await resolveImportTagIds(supabase, {
-          accountId,
-          userId: user.id,
-          tagNames: allTagNames,
-          canCreateTags: canEditSettings,
-        }));
-      }
-
       const tagAssignments: ContactTagAssignment[] = [];
 
-      // 4) Batch insert the genuinely-new rows in chunks of 50. The DB
-      //    unique index is the backstop: a 23505 (race, or a format
-      //    that normalizes equal) counts as skipped, not failed.
-      const chunkSize = 50;
-
-      for (let i = 0; i < toInsert.length; i += chunkSize) {
-        const chunk = toInsert.slice(i, i + chunkSize);
-        const rows = chunk.map((row) => ({
+      for (const contactChunk of chunkArray(
+        contactsToInsert,
+        INSERT_CHUNK_SIZE,
+      )) {
+        const insertRows = contactChunk.map((row) => ({
           user_id: user.id,
-          account_id: accountId,
-          phone: normalizePhone(row.phone),
-          name: row.name || null,
-          email: row.email || null,
-          company: row.company || null,
+          account_id: currentAccountId,
+          phone: row.normalizedPhone,
+          name: row.source.name?.trim() || null,
+          email: row.source.email?.trim() || null,
+          company: row.source.company?.trim() || null,
         }));
 
         const { data, error } = await supabase
           .from('contacts')
-          .insert(rows)
-          .select('id');
+          .insert(insertRows)
+          .select('id, phone, phone_normalized');
 
         if (error) {
-          // Retry individually so one bad/duplicate row doesn't sink
-          // the whole chunk.
-          for (let j = 0; j < rows.length; j++) {
-            const row = rows[j];
-            const source = chunk[j];
-            const { data: singleData, error: singleErr } = await supabase
-              .from('contacts')
-              .insert(row)
-              .select('id')
-              .single();
+          for (const row of contactChunk) {
+            const single = await insertContactIndividually(
+              row,
+              user.id,
+              currentAccountId,
+            );
 
-            if (!singleErr && singleData) {
-              imported++;
-              if (source.tagNames.length > 0) {
+            if (single.id) {
+              imported += 1;
+              if (row.source.tagNames.length > 0) {
                 tagAssignments.push({
-                  contactId: singleData.id,
-                  tagNames: source.tagNames,
+                  contactId: single.id,
+                  tagNames: row.source.tagNames,
                 });
               }
-            } else if (isUniqueViolation(singleErr)) {
-              skipped++;
+            } else if (single.skipped) {
+              skipped += 1;
             } else {
-              failed++;
+              failed += 1;
             }
           }
-        } else {
-          const inserted = data ?? [];
-          imported += inserted.length;
-          // inserted[j] ↔ chunk[j] only holds because a single INSERT
-          // preserves RETURNING order. If this path is ever split into
-          // parallel inserts, zip by phone or returned id instead.
-          for (let j = 0; j < inserted.length; j++) {
-            const source = chunk[j];
-            if (!source || source.tagNames.length === 0) continue;
+
+          continue;
+        }
+
+        const insertedByPhone = new Map<string, InsertedContactRow>();
+
+        for (const inserted of (data ?? []) as InsertedContactRow[]) {
+          const returnedPhone =
+            inserted.phone_normalized || inserted.phone || '';
+          const normalized = normalizePhone(returnedPhone);
+          if (normalized) insertedByPhone.set(normalized, inserted);
+        }
+
+        for (const row of contactChunk) {
+          const inserted = insertedByPhone.get(row.normalizedPhone);
+
+          if (!inserted) {
+            failed += 1;
+            continue;
+          }
+
+          imported += 1;
+
+          if (row.source.tagNames.length > 0) {
             tagAssignments.push({
-              contactId: inserted[j].id,
-              tagNames: source.tagNames,
+              contactId: inserted.id,
+              tagNames: row.source.tagNames,
             });
           }
         }
       }
 
-      // 5) Wire tags onto the contacts we just created. Failure here must
-      //    not mask a successful contact import.
       let tagsAssigned = 0;
-      try {
-        tagsAssigned = await assignImportedContactTags(
-          supabase,
-          tagAssignments,
-          tagIdByKey
-        );
-      } catch {
-        toast.warning(t('toastTagsWarning'));
+      let skippedNames: string[] = [];
+
+      if (tagAssignments.length > 0) {
+        try {
+          const tagNames = tagAssignments.flatMap(
+            (assignment) => assignment.tagNames,
+          );
+
+          const resolved = await resolveImportTagIds(supabase, {
+            accountId: currentAccountId,
+            userId: user.id,
+            tagNames,
+            canCreateTags: Boolean(canEditSettings),
+          });
+
+          skippedNames = resolved.skippedNames;
+          tagsAssigned = await assignImportedContactTags(
+            supabase,
+            tagAssignments,
+            resolved.tagIdByKey,
+          );
+        } catch (error: unknown) {
+          const normalized = normalizeError(error);
+          console.error('[contacts:import:tags]', {
+            message: normalized.message,
+            code: normalized.code,
+            details: normalized.details,
+            hint: normalized.hint,
+          });
+          toast.warning(t('toastTagsWarning'));
+        }
       }
 
       setResult({ imported, skipped, failed, tagsAssigned });
+
       if (imported > 0) {
         toast.success(t('toastImported', { count: imported }));
-        onImported();
+
+        try {
+          onImported();
+        } catch (callbackError) {
+          console.error('[contacts:import:onImported]', callbackError);
+        }
       }
+
       if (tagsAssigned > 0) {
         toast.success(t('toastTagsAssigned', { count: tagsAssigned }));
       }
+
       if (skippedNames.length > 0) {
         const sample = skippedNames.slice(0, 3).join(', ');
         const more =
-          skippedNames.length > 3 ? ` (+${skippedNames.length - 3} more)` : '';
+          skippedNames.length > 3 ? ` (+${skippedNames.length - 3})` : '';
         toast.info(t('toastTagsSkipped', { sample, more }));
       }
+
       if (skipped > 0) {
         toast.info(t('toastSkipped', { count: skipped }));
       }
+
       if (failed > 0) {
         toast.error(t('toastFailed', { count: failed }));
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('toastError');
-      toast.error(message);
+    } catch (error: unknown) {
+      const normalized = normalizeError(error);
+      console.error('[contacts:import]', {
+        message: normalized.message,
+        code: normalized.code,
+        details: normalized.details,
+        hint: normalized.hint,
+      });
+      toast.error(normalized.message || t('toastError'));
     } finally {
       setImporting(false);
     }
   }
 
   const preview = parsedRows.slice(0, PREVIEW_LIMIT);
-  // Tags: OR — show when the CSV declares a column or preview rows carry
-  // values, so an all-empty tags column still renders for validation.
   const previewHasTags =
     hasTagsColumn || preview.some((row) => row.tagNames.length > 0);
-  // Company: AND — hide unless the CSV declares it and preview has data,
-  // avoiding an all-dash column that wastes horizontal space.
   const previewHasCompany =
     hasCompanyColumn && preview.some((row) => row.company?.trim());
 
   const tagStats = useMemo(() => {
     const names = new Set<string>();
     let rowsWithTags = 0;
+
     for (const row of parsedRows) {
       if (row.tagNames.length === 0) continue;
-      rowsWithTags++;
-      for (const name of row.tagNames) names.add(name.trim().toLowerCase());
+      rowsWithTags += 1;
+
+      for (const name of row.tagNames) {
+        const key = normalizeTagKey(name);
+        if (key) names.add(key);
+      }
     }
+
     return { unique: names.size, rowsWithTags };
   }, [parsedRows]);
+
+  const interactionDisabled = importing || parsingFile;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -403,38 +640,49 @@ export function ImportModal({
             <DialogTitle className="text-lg text-popover-foreground">
               {t('title')}
             </DialogTitle>
-            <DialogDescription className="leading-relaxed text-muted-foreground"
-              dangerouslySetInnerHTML={{
-                __html: t.markup('desc', {
-                  phoneCode: (chunks) => `<code class="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">${chunks}</code>`,
-                  nameCode: (chunks) => `<code class="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">${chunks}</code>`,
-                  emailCode: (chunks) => `<code class="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">${chunks}</code>`,
-                  companyCode: (chunks) => `<code class="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">${chunks}</code>`,
-                  tagsCode: (chunks) => `<code class="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">${chunks}</code>`,
-                })
-              }}
-            />
+            <DialogDescription className="leading-relaxed text-muted-foreground">
+              {t.rich('desc', {
+                phoneCode: (chunks) => <InlineCode>{chunks}</InlineCode>,
+                nameCode: (chunks) => <InlineCode>{chunks}</InlineCode>,
+                emailCode: (chunks) => <InlineCode>{chunks}</InlineCode>,
+                companyCode: (chunks) => <InlineCode>{chunks}</InlineCode>,
+                tagsCode: (chunks) => <InlineCode>{chunks}</InlineCode>,
+              })}
+            </DialogDescription>
           </DialogHeader>
 
           <div
             role="button"
-            tabIndex={0}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ')
+            tabIndex={interactionDisabled ? -1 : 0}
+            aria-disabled={interactionDisabled}
+            onClick={() => {
+              if (!interactionDisabled) fileInputRef.current?.click();
+            }}
+            onKeyDown={(event) => {
+              if (interactionDisabled) return;
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
                 fileInputRef.current?.click();
+              }
             }}
             className={cn(
-              'group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-5 transition-all',
+              'group flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-5 transition-all',
+              interactionDisabled
+                ? 'cursor-not-allowed opacity-70'
+                : 'cursor-pointer',
               file
                 ? 'border-primary/35 bg-primary/[0.04]'
-                : 'hover:border-primary/40 border-border/80 bg-background/40 hover:bg-background/70'
+                : 'border-border/80 bg-background/40 hover:border-primary/40 hover:bg-background/70',
             )}
           >
             {file ? (
               <>
-                <div className="bg-primary/15 ring-primary/25 flex size-10 items-center justify-center rounded-lg ring-1">
-                  <FileText className="text-primary size-5" />
+                <div className="flex size-10 items-center justify-center rounded-lg bg-primary/15 ring-1 ring-primary/25">
+                  {parsingFile ? (
+                    <Loader2 className="size-5 animate-spin text-primary" />
+                  ) : (
+                    <FileText className="size-5 text-primary" />
+                  )}
                 </div>
                 <p
                   className="max-w-full truncate px-2 text-sm font-medium text-popover-foreground"
@@ -442,9 +690,11 @@ export function ImportModal({
                 >
                   {truncateFilename(file.name)}
                 </p>
-                <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                  {t('rowsReady', { count: parsedRows.length })}
-                </span>
+                {!parsingFile && (
+                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    {t('rowsReady', { count: parsedRows.length })}
+                  </span>
+                )}
               </>
             ) : (
               <>
@@ -466,6 +716,7 @@ export function ImportModal({
             type="file"
             accept=".csv,text/csv"
             onChange={handleFileChange}
+            disabled={interactionDisabled}
             className="hidden"
           />
         </div>
@@ -477,14 +728,15 @@ export function ImportModal({
                 <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
                   {t('preview', { count: preview.length })}
                 </p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {tagStats.rowsWithTags > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-muted/90 px-2 py-0.5 text-[11px] text-muted-foreground">
-                      <Tag className="text-primary/80 size-3" />
-                      {t('previewTags', { tags: tagStats.unique, contacts: tagStats.rowsWithTags })}
-                    </span>
-                  )}
-                </div>
+                {tagStats.rowsWithTags > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-muted/90 px-2 py-0.5 text-[11px] text-muted-foreground">
+                    <Tag className="size-3 text-primary/80" />
+                    {t('previewTags', {
+                      tags: tagStats.unique,
+                      contacts: tagStats.rowsWithTags,
+                    })}
+                  </span>
+                )}
               </div>
 
               <div className="overflow-hidden rounded-xl border border-border ring-1 ring-border/50">
@@ -514,9 +766,9 @@ export function ImportModal({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/70">
-                      {preview.map((row, i) => (
+                      {preview.map((row, index) => (
                         <tr
-                          key={i}
+                          key={`${normalizePhone(row.phone)}-${index}`}
                           className="bg-popover/40 transition-colors hover:bg-muted/30"
                         >
                           <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
@@ -563,7 +815,9 @@ export function ImportModal({
 
               {parsedRows.length > PREVIEW_LIMIT && (
                 <p className="text-center text-[11px] text-muted-foreground">
-                  {t('moreRows', { count: parsedRows.length - PREVIEW_LIMIT })}
+                  {t('moreRows', {
+                    count: parsedRows.length - PREVIEW_LIMIT,
+                  })}
                 </p>
               )}
             </div>
@@ -571,10 +825,12 @@ export function ImportModal({
 
           {result && (
             <div className="rounded-xl border border-border bg-background/50 p-4">
-              <p className="text-sm font-medium text-popover-foreground">{t('importComplete')}</p>
+              <p className="text-sm font-medium text-popover-foreground">
+                {t('importComplete')}
+              </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 {result.imported > 0 && (
-                  <div className="text-primary flex items-center gap-1.5 text-sm">
+                  <div className="flex items-center gap-1.5 text-sm text-primary">
                     <CheckCircle className="size-4 shrink-0" />
                     {t('resultImported', { count: result.imported })}
                   </div>
@@ -607,19 +863,26 @@ export function ImportModal({
             type="button"
             variant="outline"
             onClick={() => handleOpenChange(false)}
+            disabled={importing}
             className="border-border text-muted-foreground hover:bg-muted"
           >
             {result ? t('close') : t('cancel')}
           </Button>
+
           {!result && (
             <Button
               type="button"
-              disabled={parsedRows.length === 0 || importing}
+              disabled={
+                parsedRows.length === 0 ||
+                importing ||
+                parsingFile ||
+                !accountId
+              }
               onClick={handleImport}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {importing && <Loader2 className="size-4 animate-spin" />}
-              {parsedRows.length > 0 ? t('importBtn', { count: parsedRows.length }) : t('importBtn', { count: 0 })}
+              {t('importBtn', { count: parsedRows.length })}
             </Button>
           )}
         </DialogFooter>

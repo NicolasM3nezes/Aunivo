@@ -17,9 +17,30 @@ export function effectivePlanFor(row: BillingRow | null, now = new Date()): { pl
   return { plan: 'free', access: 'restricted' }
 }
 
+type SupabaseErrorLike = { code?: string; message?: string }
+
+export function isMissingBillingSchemaError(error: SupabaseErrorLike): boolean {
+  if (error.code === '42P01' || error.code === 'PGRST205') return true
+  const message = error.message?.toLowerCase() ?? ''
+  return message.includes('account_billing') && (message.includes('does not exist') || message.includes('schema cache') || message.includes('could not find the table'))
+}
+
+function basicEntitlements(accountId: string): AccountEntitlements {
+  const definition = BILLING_PLANS.free
+  return { accountId, configuredPlan: 'free', effectivePlan: 'free', status: 'free', access: 'full', gracePeriodEndsAt: null, limits: definition.limits, features: definition.features }
+}
+
 export async function getAccountEntitlements(accountId: string, db: SupabaseClient = supabaseAdmin()): Promise<AccountEntitlements> {
   const { data, error } = await db.from('account_billing').select('*').eq('account_id', accountId).maybeSingle()
-  if (error) throw new Error(`Could not load billing: ${error.message}`)
+  if (error) {
+    // Fail closed for installations that have not applied billing yet:
+    // Basic grants no paid feature and retains every Basic limit.
+    if (isMissingBillingSchemaError(error)) {
+      console.warn('[billing] account_billing unavailable; applying Basic entitlements')
+      return basicEntitlements(accountId)
+    }
+    throw new Error(`Could not load billing: ${error.message}`)
+  }
   const row = data as BillingRow | null
   const effective = effectivePlanFor(row)
   const definition = BILLING_PLANS[effective.plan]

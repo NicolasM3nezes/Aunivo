@@ -1,156 +1,292 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag } from '@/types';
+import type { Contact, ContactTag, Tag } from '@/types';
 import {
   findExistingContact,
   isExactMatch,
   isUniqueViolation,
   type ExistingContact,
 } from '@/lib/contacts/dedupe';
+import { isValidBrazilianPhone, normalizePhone } from '@/lib/phone';
+
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { isValidBrazilianPhone, normalizePhone } from '@/lib/phone';
-import { normalizeError } from '@/lib/errors/normalize-error';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertTriangle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
 
 interface ContactFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contact?: Contact | null;
   contactTags?: ContactTag[];
-  onSaved: () => void;
-  /** Open an existing contact's detail view — used by the duplicate
-   *  notice to jump to the contact that already owns this number. */
+  onSaved: () => void | Promise<void>;
   onViewExisting?: (contactId: string) => void;
+}
+
+type DuplicateMatch = {
+  contact: ExistingContact;
+  exact: boolean;
+};
+
+type ContactWithLeadSource = Contact & {
+  lead_source?: string | null;
+};
+
+const EMPTY_SOURCE_VALUE = '__none__';
+
+const CONTACT_SOURCES = [
+  'WhatsApp',
+  'Instagram',
+  'Facebook',
+  'Google',
+  'Site',
+  'Indicação',
+  'Anúncio pago',
+  'Evento',
+  'Ligação',
+  'Outro',
+] as const;
+
+function isValidEmail(value: string): boolean {
+  if (!value) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 export function ContactForm({
   open,
   onOpenChange,
-  contact,
+  contact = null,
   contactTags = [],
   onSaved,
   onViewExisting,
 }: ContactFormProps) {
-  const t = useTranslations('Contacts.form');
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { accountId } = useAuth();
-  const isEdit = !!contact;
+
+  const isEdit = Boolean(contact?.id);
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
-  const [estimatedValue, setEstimatedValue] = useState('');
-  const [lastContactAt, setLastContactAt] = useState('');
-  const [nextFollowUpAt, setNextFollowUpAt] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  // Duplicate-phone detection for NEW contacts. `exact` (same digits)
-  // hard-blocks the save; a fuzzy trunk-variant match only warns. The
-  // DB unique index (migration 022) is the real backstop — this is the
-  // friendly heads-up before we get there.
-  const [dupMatch, setDupMatch] = useState<
-    { contact: ExistingContact; exact: boolean } | null
-  >(null);
-  const [checkingDup, setCheckingDup] = useState(false);
+  const [leadSource, setLeadSource] = useState('');
 
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
+  const [tagsError, setTagsError] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setName(contact?.name ?? '');
-      setPhone(contact?.phone ?? '');
-      setEmail(contact?.email ?? '');
-      setCompany(contact?.company ?? '');
-      setEstimatedValue(contact?.estimated_value?.toString() ?? '');
-      setLastContactAt(contact?.last_contact_at?.slice(0, 16) ?? '');
-      setNextFollowUpAt(contact?.next_follow_up_at?.slice(0, 16) ?? '');
-      setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
-      setDupMatch(null);
-      fetchTags();
+  const [duplicate, setDuplicate] = useState<DuplicateMatch | null>(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const sourceOptions = useMemo(() => {
+    const normalizedCurrentSource = leadSource.trim();
+    const defaultSources = [...CONTACT_SOURCES] as string[];
+
+    if (
+      normalizedCurrentSource &&
+      !defaultSources.includes(normalizedCurrentSource)
+    ) {
+      return [normalizedCurrentSource, ...defaultSources];
     }
-  }, [open, contact]);
 
-  // Look up an existing contact with this number (new contacts only).
-  // Runs on blur so we don't query on every keystroke.
-  async function checkDuplicate() {
-    if (isEdit || !accountId) return;
-    const value = phone.trim();
-    if (!value) {
-      setDupMatch(null);
+    return defaultSources;
+  }, [leadSource]);
+
+  const resetForm = useCallback(() => {
+    const currentContact = contact as ContactWithLeadSource | null;
+
+    setName(contact?.name ?? '');
+    setPhone(contact?.phone ?? '');
+    setEmail(contact?.email ?? '');
+    setCompany(contact?.company ?? '');
+    setLeadSource(currentContact?.lead_source ?? '');
+    setSelectedTagIds(contactTags.map((item) => item.tag_id));
+    setDuplicate(null);
+    setTagsError(false);
+  }, [contact, contactTags]);
+
+  const loadTags = useCallback(async () => {
+    if (!accountId) {
+      setTags([]);
       return;
     }
-    setCheckingDup(true);
-    try {
-      const existing = await findExistingContact(supabase, accountId, value);
-      setDupMatch(
-        existing
-          ? { contact: existing, exact: isExactMatch(existing, value) }
-          : null,
-      );
-    } finally {
-      setCheckingDup(false);
-    }
-  }
 
-  async function fetchTags() {
     setLoadingTags(true);
-    const { data } = await supabase
+    setTagsError(false);
+
+    const { data, error } = await supabase
       .from('tags')
       .select('*')
-      .eq('account_id', accountId ?? '')
-      .order('name');
-    if (data) setTags(data);
+      .eq('account_id', accountId)
+      .order('name', { ascending: true });
+
+    if (error) {
+      setTags([]);
+      setTagsError(true);
+      console.warn('[contacts:tags:load]', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+    } else {
+      setTags((data ?? []) as Tag[]);
+    }
+
     setLoadingTags(false);
+  }, [accountId, supabase]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    resetForm();
+    void loadTags();
+  }, [open, resetForm, loadTags]);
+
+  function handleDialogChange(nextOpen: boolean) {
+    if (saving) return;
+    onOpenChange(nextOpen);
+  }
+
+  async function checkDuplicatePhone() {
+    if (!accountId || !phone.trim()) {
+      setDuplicate(null);
+      return;
+    }
+
+    setCheckingDuplicate(true);
+
+    try {
+      const existing = await findExistingContact(
+        supabase,
+        accountId,
+        phone.trim(),
+      );
+
+      if (!existing || existing.id === contact?.id) {
+        setDuplicate(null);
+        return;
+      }
+
+      setDuplicate({
+        contact: existing,
+        exact: isExactMatch(existing, phone.trim()),
+      });
+    } catch (error) {
+      console.warn('[contacts:duplicate:check]', error);
+      setDuplicate(null);
+    } finally {
+      setCheckingDuplicate(false);
+    }
   }
 
   function toggleTag(tagId: string) {
-    setSelectedTagIds((prev) =>
-      prev.includes(tagId)
-        ? prev.filter((id) => id !== tagId)
-        : [...prev, tagId]
+    if (saving) return;
+
+    setSelectedTagIds((current) =>
+      current.includes(tagId)
+        ? current.filter((id) => id !== tagId)
+        : [...current, tagId],
     );
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function syncTags(contactId: string) {
+    if (!accountId) return;
 
-    if (!name.trim()) {
+    const { data: existingRows, error: existingError } = await supabase
+      .from('contact_tags')
+      .select('tag_id')
+      .eq('contact_id', contactId);
+
+    if (existingError) throw existingError;
+
+    const existingIds = new Set(
+      (existingRows ?? []).map((row) => row.tag_id as string),
+    );
+    const selectedIds = new Set(selectedTagIds);
+
+    const idsToRemove = [...existingIds].filter((id) => !selectedIds.has(id));
+    const idsToAdd = [...selectedIds].filter((id) => !existingIds.has(id));
+
+    if (idsToRemove.length > 0) {
+      const { error } = await supabase
+        .from('contact_tags')
+        .delete()
+        .eq('contact_id', contactId)
+        .in('tag_id', idsToRemove);
+
+      if (error) throw error;
+    }
+
+    if (idsToAdd.length > 0) {
+      const rows = idsToAdd.map((tagId) => ({
+        contact_id: contactId,
+        tag_id: tagId,
+      }));
+
+      const { error } = await supabase.from('contact_tags').insert(rows);
+      if (error) throw error;
+    }
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const cleanName = name.trim();
+    const cleanPhone = phone.trim();
+    const cleanEmail = email.trim();
+    const cleanCompany = company.trim();
+    const cleanLeadSource = leadSource.trim();
+
+    if (!accountId) {
+      toast.error('Sua conta ainda não foi carregada. Atualize a página.');
+      return;
+    }
+
+    if (!cleanName) {
       toast.error('Informe o nome do contato.');
       return;
     }
-    if (!isValidBrazilianPhone(phone)) {
-      toast.error('Informe um telefone válido com DDD.');
-      return;
-    }
-    if (!phone.trim()) {
-      toast.error(t('phoneRequired'));
+
+    if (!cleanPhone) {
+      toast.error('Informe o telefone do contato.');
       return;
     }
 
-    // Hard-block an exact duplicate on create (the DB unique index is
-    // the real backstop; this avoids a round-trip + a raw error toast).
-    if (!isEdit && dupMatch?.exact) {
-      toast.error(t('toastConflict'));
+    if (!isValidBrazilianPhone(cleanPhone)) {
+      toast.error('Informe um telefone válido com DDD.');
+      return;
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      toast.error('Informe um e-mail válido.');
+      return;
+    }
+
+    if (duplicate?.exact) {
+      toast.error('Já existe um contato com esse telefone.');
       return;
     }
 
@@ -158,250 +294,332 @@ export function ContactForm({
 
     try {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) throw new Error('Not authenticated');
-      if (!accountId) throw new Error('Perfil sem vínculo com uma conta.');
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-      let contactId = contact?.id;
+      if (authError || !user) {
+        throw authError ?? new Error('Usuário não autenticado.');
+      }
 
-      if (isEdit && contactId) {
-        const { data: updated, error } = await supabase
+      const payload = {
+        name: cleanName,
+        phone: normalizePhone(cleanPhone),
+        email: cleanEmail || null,
+        company: cleanCompany || null,
+        lead_source: cleanLeadSource || null,
+      };
+
+      let savedContactId: string;
+
+      if (isEdit && contact?.id) {
+        const { data, error } = await supabase
           .from('contacts')
-          .update({
-            name: name.trim(),
-            phone: normalizePhone(phone),
-            email: email.trim() || null,
-            company: company.trim() || null,
-            estimated_value: estimatedValue ? Number(estimatedValue) : null,
-            last_contact_at: lastContactAt ? new Date(lastContactAt).toISOString() : null,
-            next_follow_up_at: nextFollowUpAt ? new Date(nextFollowUpAt).toISOString() : null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', contactId)
+          .update(payload)
+          .eq('id', contact.id)
           .eq('account_id', accountId)
           .select('id')
           .maybeSingle();
+
         if (error) throw error;
-        if (!updated) throw new Error('Contato não encontrado nesta organização.');
+        if (!data) {
+          throw new Error('Contato não encontrado nesta conta.');
+        }
+
+        savedContactId = data.id;
       } else {
         const { data, error } = await supabase
           .from('contacts')
           .insert({
+            ...payload,
             user_id: user.id,
             account_id: accountId,
-            name: name.trim(),
-            phone: normalizePhone(phone),
-            email: email.trim() || null,
-            company: company.trim() || null,
-            estimated_value: estimatedValue ? Number(estimatedValue) : null,
-            last_contact_at: lastContactAt ? new Date(lastContactAt).toISOString() : null,
-            next_follow_up_at: nextFollowUpAt ? new Date(nextFollowUpAt).toISOString() : null,
           })
           .select('id')
           .single();
+
         if (error) throw error;
-        contactId = data.id;
+        savedContactId = data.id;
       }
 
-      // Sync tags
-      if (contactId) {
-        const { error: clearTagsError } = await supabase
-          .from('contact_tags')
-          .delete()
-          .eq('contact_id', contactId);
-        if (clearTagsError) throw clearTagsError;
-
-        if (selectedTagIds.length > 0) {
-          const tagRows = selectedTagIds.map((tag_id) => ({
-            contact_id: contactId!,
-            tag_id,
-          }));
-          const { error: tagError } = await supabase
-            .from('contact_tags')
-            .insert(tagRows);
-          if (tagError) throw tagError;
-        }
+      try {
+        await syncTags(savedContactId);
+      } catch (tagError) {
+        console.warn('[contacts:tags:save]', tagError);
+        toast.warning(
+          'O contato foi salvo, mas não foi possível atualizar as etiquetas.',
+        );
       }
 
-      toast.success(isEdit ? t('toastSuccessEdit') : t('toastSuccessAdd'));
+      toast.success(isEdit ? 'Contato atualizado.' : 'Contato adicionado.');
       onOpenChange(false);
-      onSaved();
-    } catch (err: unknown) {
-      // The unique index (migration 022) rejects a duplicate phone that
-      // slipped past the on-blur check (race, or a format that
-      // normalizes equal). Surface it as the friendly duplicate notice
-      // and, for new contacts, point the user at the existing record.
-      if (isUniqueViolation(err)) {
-        toast.error(t('toastConflict'));
+
+      try {
+        await onSaved();
+      } catch (refreshError) {
+        console.warn('[contacts:refresh]', refreshError);
+      }
+    } catch (error: unknown) {
+      if (isUniqueViolation(error)) {
+        toast.error('Já existe um contato com esse telefone.');
+
         if (!isEdit && accountId) {
-          const existing = await findExistingContact(
-            supabase,
-            accountId,
-            phone.trim(),
-          );
-          if (existing) setDupMatch({ contact: existing, exact: true });
+          try {
+            const existing = await findExistingContact(
+              supabase,
+              accountId,
+              cleanPhone,
+            );
+
+            if (existing) {
+              setDuplicate({
+                contact: existing,
+                exact: true,
+              });
+            }
+          } catch {
+            // A mensagem de duplicidade já foi exibida.
+          }
         }
+
         return;
       }
-      const normalized = normalizeError(err);
-      console.error('[contacts:save]', { message: normalized.message, code: normalized.code, details: normalized.details, hint: normalized.hint });
-      toast.error('Não foi possível salvar o contato. Tente novamente.');
+
+      const databaseError = error as {
+        message?: string;
+        code?: string;
+        details?: string;
+        hint?: string;
+      };
+
+      console.warn('[contacts:save]', {
+        message: databaseError?.message,
+        code: databaseError?.code,
+        details: databaseError?.details,
+        hint: databaseError?.hint,
+      });
+
+      const message = databaseError?.message ?? '';
+
+      if (message.includes('row-level security')) {
+        toast.error(
+          'Você não tem permissão para salvar contatos nesta conta.',
+        );
+      } else if (
+        message.includes('schema cache') ||
+        message.includes('lead_source')
+      ) {
+        toast.error(
+          'O campo de origem ainda não existe no banco de dados. Aplique a migration da coluna lead_source.',
+        );
+      } else {
+        toast.error('Não foi possível salvar o contato.');
+      }
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
+    <Dialog open={open} onOpenChange={handleDialogChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-border bg-popover text-popover-foreground sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-popover-foreground">
-            {isEdit ? t('editTitle') : t('addTitle')}
+          <DialogTitle>
+            {isEdit ? 'Editar contato' : 'Adicionar contato'}
           </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
+          <DialogDescription>
             {isEdit
-              ? t('editDesc')
-              : t('addDesc')}
+              ? 'Atualize os dados principais deste contato.'
+              : 'Cadastre um novo contato na sua conta.'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="cf-name" className="text-muted-foreground">
-              {t('nameLabel')} <span className="text-red-400">*</span>
-            </Label>
-            <Input
-              id="cf-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('namePlaceholder')}
-              required
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cf-phone" className="text-muted-foreground">
-              {t('phoneLabel')} <span className="text-red-400">*</span>
-            </Label>
-            <PhoneInput
-              id="cf-phone"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value);
-                if (dupMatch) setDupMatch(null);
-              }}
-              onBlur={checkDuplicate}
-              placeholder={t('phonePlaceholder')}
-              required
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-            />
-            {dupMatch ? (
-              <div
-                className={`flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${
-                  dupMatch.exact
-                    ? 'border-red-500/40 bg-red-500/10 text-red-300'
-                    : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
-                }`}
-              >
-                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                <div className="space-y-1">
-                  <p>
-                    {dupMatch.exact
-                      ? t('dupExact')
-                      : t('dupSimilar')}
-                  </p>
-                  {onViewExisting && (
-                    <button
-                      type="button"
-                      onClick={() => onViewExisting(dupMatch.contact.id)}
-                      className="font-medium underline underline-offset-2 hover:no-underline"
-                    >
-                      {t('viewExisting', { name: dupMatch.contact.name || dupMatch.contact.phone })}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                {t('phoneHint')}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cf-email" className="text-muted-foreground">
-              {t('emailLabel')}
-            </Label>
-            <Input
-              id="cf-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t('emailPlaceholder')}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cf-company" className="text-muted-foreground">
-              {t('companyLabel')}
-            </Label>
-            <Input
-              id="cf-company"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              placeholder={t('companyPlaceholder')}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-            />
-          </div>
-
+        <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="cf-value">Valor estimado (R$)</Label>
-              <Input id="cf-value" type="number" min="0" step="0.01" value={estimatedValue} onChange={(e) => setEstimatedValue(e.target.value)} />
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="contact-name">
+                Nome <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="contact-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Nome do contato"
+                autoComplete="name"
+                disabled={saving}
+              />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cf-last-contact">Último contato</Label>
-              <Input id="cf-last-contact" type="datetime-local" value={lastContactAt} onChange={(e) => setLastContactAt(e.target.value)} />
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="contact-phone">
+                Telefone <span className="text-destructive">*</span>
+              </Label>
+              <PhoneInput
+                id="contact-phone"
+                value={phone}
+                onChange={(event) => {
+                  setPhone(event.target.value);
+                  setDuplicate(null);
+                }}
+                onBlur={() => void checkDuplicatePhone()}
+                placeholder="(11) 99999-9999"
+                disabled={saving}
+                required
+              />
+
+              {checkingDuplicate && (
+                <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="size-3 animate-spin" />
+                  Verificando telefone...
+                </p>
+              )}
+
+              {duplicate && (
+                <div
+                  className={
+                    duplicate.exact
+                      ? 'flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive'
+                      : 'flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-300'
+                  }
+                >
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  <div className="space-y-1">
+                    <p>
+                      {duplicate.exact
+                        ? 'Esse telefone já pertence a outro contato.'
+                        : 'Encontramos um contato com telefone semelhante.'}
+                    </p>
+
+                    {onViewExisting && (
+                      <button
+                        type="button"
+                        className="font-medium underline underline-offset-2"
+                        onClick={() => onViewExisting(duplicate.contact.id)}
+                      >
+                        Abrir contato existente
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cf-follow-up">Próximo retorno</Label>
-            <Input id="cf-follow-up" type="datetime-local" value={nextFollowUpAt} onChange={(e) => setNextFollowUpAt(e.target.value)} />
+
+            <div className="space-y-2">
+              <Label htmlFor="contact-email">E-mail</Label>
+              <Input
+                id="contact-email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="contato@empresa.com"
+                autoComplete="email"
+                disabled={saving}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="contact-company">Empresa</Label>
+              <Input
+                id="contact-company"
+                value={company}
+                onChange={(event) => setCompany(event.target.value)}
+                placeholder="Nome da empresa"
+                autoComplete="organization"
+                disabled={saving}
+              />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="contact-lead-source">Origem do contato</Label>
+
+              <Select
+                value={leadSource || EMPTY_SOURCE_VALUE}
+                onValueChange={(value) =>
+                  setLeadSource(value === EMPTY_SOURCE_VALUE ? '' : value)
+                }
+                disabled={saving}
+              >
+                <SelectTrigger id="contact-lead-source" className="w-full">
+                  <SelectValue placeholder="Selecione a origem do contato" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  <SelectItem value={EMPTY_SOURCE_VALUE}>
+                    Não informado
+                  </SelectItem>
+
+                  {sourceOptions.map((source) => (
+                    <SelectItem key={source} value={source}>
+                      {source}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <p className="text-xs text-muted-foreground">
+                Essa informação será utilizada nos relatórios de aquisição.
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-muted-foreground">{t('tagsLabel')}</Label>
+          <div className="space-y-3">
+            <div>
+              <Label>Etiquetas</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Selecione as etiquetas relacionadas ao contato.
+              </p>
+            </div>
+
             {loadingTags ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Loader2 className="size-3 animate-spin" />
-                {t('loadingTags')}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                Carregando etiquetas...
+              </div>
+            ) : tagsError ? (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                <p className="text-xs text-muted-foreground">
+                  Não foi possível carregar as etiquetas.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadTags()}
+                  disabled={saving}
+                >
+                  <RefreshCw className="size-3.5" />
+                  Tentar novamente
+                </Button>
               </div>
             ) : tags.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                {t('noTagsAvailable')}
+              <p className="text-sm text-muted-foreground">
+                Nenhuma etiqueta disponível.
               </p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => {
                   const selected = selectedTagIds.includes(tag.id);
+                  const color =
+                    typeof tag.color === 'string' && tag.color
+                      ? tag.color
+                      : '#64748b';
+
                   return (
                     <button
                       key={tag.id}
                       type="button"
+                      disabled={saving}
                       onClick={() => toggleTag(tag.id)}
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors cursor-pointer ${
+                      aria-pressed={selected}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                         selected
-                          ? 'ring-2 ring-primary ring-offset-1 ring-offset-border'
+                          ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
                           : 'opacity-60 hover:opacity-100'
                       }`}
                       style={{
-                        backgroundColor: tag.color + '20',
-                        color: tag.color,
-                        borderColor: tag.color,
+                        color,
+                        borderColor: `${color}70`,
+                        backgroundColor: `${color}18`,
                       }}
                     >
                       {tag.name}
@@ -412,22 +630,31 @@ export function ContactForm({
             )}
           </div>
 
-          <DialogFooter className="bg-popover border-border">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="border-border text-muted-foreground hover:bg-muted"
+              onClick={() => handleDialogChange(false)}
+              disabled={saving}
             >
-              {t('cancel')}
+              Cancelar
             </Button>
+
             <Button
               type="submit"
-              disabled={saving || checkingDup || (!isEdit && !!dupMatch?.exact)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              disabled={
+                saving ||
+                checkingDuplicate ||
+                Boolean(duplicate?.exact) ||
+                !accountId
+              }
             >
               {saving && <Loader2 className="size-4 animate-spin" />}
-              {isEdit ? t('update') : t('create')}
+              {saving
+                ? 'Salvando...'
+                : isEdit
+                  ? 'Salvar alterações'
+                  : 'Adicionar contato'}
             </Button>
           </DialogFooter>
         </form>

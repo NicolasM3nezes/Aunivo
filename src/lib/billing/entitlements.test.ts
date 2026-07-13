@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { effectivePlanFor } from './entitlements'
+import { effectivePlanFor, getAccountEntitlements, isMissingBillingSchemaError } from './entitlements'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { BillingRow, SubscriptionStatus } from './types'
 
 function row(status: SubscriptionStatus, overrides: Partial<BillingRow> = {}): BillingRow {
@@ -13,4 +14,29 @@ describe('effective billing access', () => {
   it('restricts past_due after grace', () => expect(effectivePlanFor(row('past_due', { grace_period_ends_at: '2020-01-01T00:00:00Z' })).plan).toBe('free'))
   it.each(['canceled','unpaid','paused','incomplete_expired'] as const)('restricts %s', (status) => expect(effectivePlanFor(row(status)).access).toBe('restricted'))
   it('defaults missing billing rows to Free', () => expect(effectivePlanFor(null).plan).toBe('free'))
+})
+
+describe('billing schema compatibility', () => {
+  it('recognizes only missing-table/schema-cache errors', () => {
+    expect(isMissingBillingSchemaError({ code: '42P01', message: 'relation missing' })).toBe(true)
+    expect(isMissingBillingSchemaError({ code: 'PGRST205', message: "Could not find the table 'account_billing' in the schema cache" })).toBe(true)
+    expect(isMissingBillingSchemaError({ code: '42501', message: 'permission denied' })).toBe(false)
+  })
+
+  it('fails closed to Basic when billing has not been migrated yet', async () => {
+    const terminal = Promise.resolve({ data: null, error: { code: 'PGRST205', message: "Could not find the table 'account_billing' in the schema cache" } })
+    const query = { select: () => query, eq: () => query, maybeSingle: () => terminal }
+    const db = { from: () => query } as unknown as SupabaseClient
+    const result = await getAccountEntitlements('account-1', db)
+    expect(result.effectivePlan).toBe('free')
+    expect(result.features.automations).toBe(true)
+    expect(result.limits.automations).toBe(1)
+  })
+
+  it('does not hide permission or connectivity failures', async () => {
+    const terminal = Promise.resolve({ data: null, error: { code: '42501', message: 'permission denied' } })
+    const query = { select: () => query, eq: () => query, maybeSingle: () => terminal }
+    const db = { from: () => query } as unknown as SupabaseClient
+    await expect(getAccountEntitlements('account-1', db)).rejects.toThrow('permission denied')
+  })
 })

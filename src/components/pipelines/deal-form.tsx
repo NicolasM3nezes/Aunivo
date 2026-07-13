@@ -8,7 +8,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { FEATURES } from '@/config/features';
+import { FEATURES } from "@/config/features";
 import {
   Check,
   CircleDot,
@@ -92,6 +92,9 @@ export function DealForm({
 
   const [loadingData, setLoadingData] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<DealStatus>(
+    deal?.status ?? "open",
+  );
   const [statusAction, setStatusAction] = useState<DealStatus | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -128,11 +131,24 @@ export function DealForm({
     setNotes("");
   }, [
     open,
-    deal,
+    deal?.id,
+    deal?.title,
+    deal?.value,
+    deal?.currency,
+    deal?.contact_id,
+    deal?.stage_id,
+    deal?.assigned_to,
+    deal?.expected_close_date,
+    deal?.notes,
     defaultStageId,
     firstStageId,
     fallbackCurrency,
   ]);
+
+  useEffect(() => {
+    if (!open) return;
+    setCurrentStatus(deal?.status ?? "open");
+  }, [open, deal?.id, deal?.status]);
   useEffect(() => {
     if (!open) return;
 
@@ -142,9 +158,9 @@ export function DealForm({
       setLoadingData(true);
 
       try {
-        const contactsResult = await supabase.from("contacts").select("*").eq('account_id', accountId ?? '').order("name");
+        const contactsResult = await supabase.from("contacts").select("*").eq("account_id", accountId ?? "").order("name");
         const profilesResult = FEATURES.team
-          ? await supabase.from("profiles").select("*").eq('account_id', accountId ?? '').order("full_name")
+          ? await supabase.from("profiles").select("*").eq("account_id", accountId ?? "").order("full_name")
           : { data: [], error: null };
 
         if (cancelled) return;
@@ -245,7 +261,7 @@ export function DealForm({
           .from("deals")
           .update(payload)
           .eq("id", deal.id)
-          .eq('account_id', accountId);
+          .eq("account_id", accountId);
 
         if (error) {
           console.error("Erro ao atualizar negócio:", error);
@@ -291,22 +307,32 @@ export function DealForm({
   }
 
   async function handleStatusChange(status: DealStatus) {
-    if (!deal || isBusy || deal.status === status) return;
+    if (!deal || isBusy || currentStatus === status) return;
+
+    if (!accountId) {
+      toast.error(t("toastNotLinked"));
+      return;
+    }
 
     setStatusAction(status);
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("deals")
         .update({ status })
         .eq("id", deal.id)
-        .eq('account_id', accountId ?? '');
+        .eq("account_id", accountId)
+        .select("id")
+        .maybeSingle();
 
-      if (error) {
+      if (error || !data) {
         console.error("Erro ao alterar status do negócio:", error);
         toast.error(t("toastFailedStatus"));
         return;
       }
+
+      // Atualiza o card imediatamente e mantém o formulário aberto.
+      setCurrentStatus(status);
 
       toast.success(
         status === "won"
@@ -316,7 +342,7 @@ export function DealForm({
             : t("toastReopened"),
       );
 
-      onOpenChange(false);
+      // Atualiza o funil ao fundo, sem fechar o modal.
       onSaved();
     } finally {
       setStatusAction(null);
@@ -333,7 +359,7 @@ export function DealForm({
         .from("deals")
         .delete()
         .eq("id", deal.id)
-        .eq('account_id', accountId ?? '');
+        .eq("account_id", accountId ?? "");
 
       if (error) {
         console.error("Erro ao excluir negócio:", error);
@@ -532,16 +558,16 @@ export function DealForm({
                     <span
                       className={[
                         "rounded-full px-2.5 py-1 text-xs font-medium",
-                        deal.status === "won"
+                        currentStatus === "won"
                           ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                          : deal.status === "lost"
+                          : currentStatus === "lost"
                             ? "bg-destructive/10 text-destructive"
                             : "bg-primary/10 text-primary",
                       ].join(" ")}
                     >
-                      {deal.status === "won"
+                      {currentStatus === "won"
                         ? "Ganho"
-                        : deal.status === "lost"
+                        : currentStatus === "lost"
                           ? "Perdido"
                           : "Em aberto"}
                     </span>
@@ -555,12 +581,12 @@ export function DealForm({
                     <Button
                       type="button"
                       variant="outline"
-                      aria-pressed={deal.status === "open"}
+                      aria-pressed={currentStatus === "open"}
                       onClick={() => void handleStatusChange("open")}
                       disabled={isBusy}
                       className={[
                         "h-auto min-h-16 flex-col gap-1.5 px-2 py-3 text-xs",
-                        deal.status === "open"
+                        currentStatus === "open"
                           ? "border-primary bg-primary/10 text-primary shadow-sm hover:bg-primary/15 hover:text-primary"
                           : "text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary",
                       ].join(" ")}
@@ -576,12 +602,12 @@ export function DealForm({
                     <Button
                       type="button"
                       variant="outline"
-                      aria-pressed={deal.status === "won"}
+                      aria-pressed={currentStatus === "won"}
                       onClick={() => void handleStatusChange("won")}
                       disabled={isBusy}
                       className={[
                         "h-auto min-h-16 flex-col gap-1.5 px-2 py-3 text-xs",
-                        deal.status === "won"
+                        currentStatus === "won"
                           ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 shadow-sm hover:bg-emerald-500/15 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-400"
                           : "text-muted-foreground hover:border-emerald-500/40 hover:bg-emerald-500/5 hover:text-emerald-700 dark:hover:text-emerald-400",
                       ].join(" ")}
@@ -597,12 +623,12 @@ export function DealForm({
                     <Button
                       type="button"
                       variant="outline"
-                      aria-pressed={deal.status === "lost"}
+                      aria-pressed={currentStatus === "lost"}
                       onClick={() => void handleStatusChange("lost")}
                       disabled={isBusy}
                       className={[
                         "h-auto min-h-16 flex-col gap-1.5 px-2 py-3 text-xs",
-                        deal.status === "lost"
+                        currentStatus === "lost"
                           ? "border-destructive bg-destructive/10 text-destructive shadow-sm hover:bg-destructive/15 hover:text-destructive"
                           : "text-muted-foreground hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive",
                       ].join(" ")}

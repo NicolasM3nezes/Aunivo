@@ -1,52 +1,212 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { useAuth } from '@/hooks/use-auth';
-import { formatCurrency } from '@/lib/currency';
-import { formatBrazilianPhone, normalizePhone } from '@/lib/phone';
-import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag, ContactNote, CustomField, ContactCustomValue, Deal, MessageTemplate } from '@/types';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { toast } from "sonner";
+import {
+  AlertCircle,
+  BriefcaseBusiness,
+  Building2,
+  Check,
+  Copy,
+  DollarSign,
+  ExternalLink,
+  LayoutTemplate,
+  Loader2,
+  Mail,
+  MessageCircle,
+  Phone,
+  Plus,
+  RefreshCw,
+  Save,
+  StickyNote,
+  Tags,
+  Trash2,
+  UserRound,
+  ListFilter,
+} from "lucide-react";
+
+import { useAuth } from "@/hooks/use-auth";
+import { createClient } from "@/lib/supabase/client";
+import { formatCurrency } from "@/lib/currency";
+import {
+  formatBrazilianPhone,
+  isValidBrazilianPhone,
+  normalizePhone,
+} from "@/lib/phone";
+import { normalizeError } from "@/lib/errors/normalize-error";
+import {
+  findExistingContact,
+  isExactMatch,
+  isUniqueViolation,
+  type ExistingContact,
+} from "@/lib/contacts/dedupe";
+import type {
+  ContactNote,
+  CustomField,
+  Deal,
+  MessageTemplate,
+  Tag,
+} from "@/types";
+
 import {
   TemplatePicker,
   type TemplateSendValues,
-} from '@/components/inbox/template-picker';
+} from "@/components/inbox/template-picker";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+} from "@/components/ui/sheet";
 import {
-  Phone,
-  Mail,
-  Building2,
-  Copy,
-  Check,
-  Loader2,
-  Plus,
-  Trash2,
-  Save,
-  X,
-  DollarSign,
-  LayoutTemplate,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ContactDetailViewProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contactId: string | null;
-  onUpdated: () => void;
+  onUpdated: () => void | Promise<void>;
+}
+
+/**
+ * Estrutura mínima e compatível com a tabela contacts atual.
+ *
+ * Não adicione estimated_value, last_contact_at ou next_follow_up_at aqui
+ * enquanto essas colunas não existirem no banco.
+ */
+type ContactRecord = {
+  id: string;
+  account_id: string;
+  name: string | null;
+  phone: string;
+  email: string | null;
+  company: string | null;
+};
+
+type DuplicatePhone = {
+  contact: ExistingContact;
+  exact: boolean;
+};
+
+type SectionName = "tags" | "notes" | "custom" | "deals";
+
+type SectionErrors = Record<SectionName, string | null>;
+
+type CustomValueIdMap = Record<string, string>;
+
+const CONTACT_SELECT =
+  "id, account_id, name, phone, email, company";
+
+const EMPTY_SECTION_ERRORS: SectionErrors = {
+  tags: null,
+  notes: null,
+  custom: null,
+  deals: null,
+};
+
+function getInitials(name?: string | null): string {
+  if (!name?.trim()) return "?";
+
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function isValidEmail(value: string): boolean {
+  if (!value.trim()) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function safeTagColor(value?: string | null): string {
+  if (value && /^#[0-9a-f]{6}$/i.test(value)) return value;
+  return "#64748b";
+}
+
+function getDealStatusLabel(status?: string | null): string {
+  if (status === "won") return "Ganho";
+  if (status === "lost") return "Perdido";
+  return status ?? "";
+}
+
+function getCustomFieldInputType(fieldType?: string | null) {
+  if (fieldType === "number") return "number";
+  if (fieldType === "date") return "date";
+  if (fieldType === "email") return "email";
+  if (fieldType === "url") return "url";
+  return "text";
+}
+
+function getWhatsAppNumber(phone: string): string {
+  const digits = normalizePhone(phone).replace(/\D/g, "");
+  if (!digits) return "";
+
+  if (digits.startsWith("55") && digits.length >= 12) {
+    return digits;
+  }
+
+  return `55${digits}`;
+}
+
+function reportWarning(scope: string, error: unknown) {
+  const normalized = normalizeError(error);
+
+  // console.warn evita que erros já tratados apareçam como overlay vermelho
+  // do Next.js durante o desenvolvimento.
+  console.warn(scope, {
+    message: normalized.message,
+    code: normalized.code,
+    details: normalized.details,
+    hint: normalized.hint,
+  });
+}
+
+function SectionError({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-8 text-center">
+      <AlertCircle className="size-5 text-destructive" />
+      <p className="max-w-sm text-sm text-muted-foreground">{message}</p>
+      <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+        <RefreshCw className="size-4" />
+        Tentar novamente
+      </Button>
+    </div>
+  );
+}
+
+function SectionLoader({ label }: { label: string }) {
+  return (
+    <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+      <Loader2 className="size-5 animate-spin" />
+      {label}
+    </div>
+  );
 }
 
 export function ContactDetailView({
@@ -55,300 +215,808 @@ export function ContactDetailView({
   contactId,
   onUpdated,
 }: ContactDetailViewProps) {
-  const t = useTranslations('Contacts.detailView');
-  const supabase = createClient();
-  const { accountId, defaultCurrency } = useAuth();
+  const supabase = useMemo(() => createClient(), []);
+  const { user, accountId, defaultCurrency } = useAuth();
 
-  const [contact, setContact] = useState<Contact | null>(null);
-  const [loading, setLoading] = useState(false);
+  const requestVersionRef = useRef(0);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [activeTab, setActiveTab] = useState("details");
+
+  const [contact, setContact] = useState<ContactRecord | null>(null);
+  const [loadingContact, setLoadingContact] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [duplicatePhone, setDuplicatePhone] =
+    useState<DuplicatePhone | null>(null);
+
   const [copiedPhone, setCopiedPhone] = useState(false);
-
-  // Send template — lets the business initiate (or re-open) a conversation
-  // with this contact by sending an approved template. The send route
-  // find-or-creates the conversation, so no inbound message is required.
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [sendingTemplate, setSendingTemplate] = useState(false);
 
-  // Details tab
-  const [editName, setEditName] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editCompany, setEditCompany] = useState('');
-  const [savingDetails, setSavingDetails] = useState(false);
-
-  // Tags tab
-  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [contactTagIds, setContactTagIds] = useState<string[]>([]);
-  const [savingTags, setSavingTags] = useState(false);
+  const [loadingTags, setLoadingTags] = useState(false);
+  const [savingTagId, setSavingTagId] = useState<string | null>(null);
 
-  // Notes tab
   const [notes, setNotes] = useState<ContactNote[]>([]);
-  const [newNote, setNewNote] = useState('');
-  const [savingNote, setSavingNote] = useState(false);
+  const [newNote, setNewNote] = useState("");
   const [loadingNotes, setLoadingNotes] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
-  // Custom fields tab
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
-  const [savingCustom, setSavingCustom] = useState(false);
+  const [customValueIds, setCustomValueIds] =
+    useState<CustomValueIdMap>({});
   const [loadingCustom, setLoadingCustom] = useState(false);
+  const [savingCustom, setSavingCustom] = useState(false);
 
-  // Deals tab
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
 
-  const fetchContact = useCallback(async () => {
-    if (!contactId) return;
-    setLoading(true);
+  const [sectionErrors, setSectionErrors] =
+    useState<SectionErrors>(EMPTY_SECTION_ERRORS);
 
-    const { data } = await supabase
-      .from('contacts')
-      .select('*')
-      .eq('id', contactId)
-      .single();
+  const hasPendingOperation =
+    savingDetails ||
+    checkingDuplicate ||
+    sendingTemplate ||
+    savingTagId !== null ||
+    savingNote ||
+    deletingNoteId !== null ||
+    savingCustom;
 
-    if (data) {
-      setContact(data);
-      setEditName(data.name ?? '');
-      setEditPhone(data.phone);
-      setEditEmail(data.email ?? '');
-      setEditCompany(data.company ?? '');
+  const fillContactForm = useCallback((value: ContactRecord) => {
+    setName(value.name ?? "");
+    setPhone(value.phone ?? "");
+    setEmail(value.email ?? "");
+    setCompany(value.company ?? "");
+    setDuplicatePhone(null);
+  }, []);
+
+  const setSectionError = useCallback(
+    (section: SectionName, message: string | null) => {
+      setSectionErrors((current) => ({
+        ...current,
+        [section]: message,
+      }));
+    },
+    [],
+  );
+
+  const resetView = useCallback(() => {
+    setActiveTab("details");
+
+    setContact(null);
+    setContactError(null);
+    setName("");
+    setPhone("");
+    setEmail("");
+    setCompany("");
+    setDuplicatePhone(null);
+
+    setTags([]);
+    setContactTagIds([]);
+
+    setNotes([]);
+    setNewNote("");
+
+    setCustomFields([]);
+    setCustomValues({});
+    setCustomValueIds({});
+
+    setDeals([]);
+    setSectionErrors(EMPTY_SECTION_ERRORS);
+
+    setTemplatePickerOpen(false);
+    setCopiedPhone(false);
+  }, []);
+
+  const loadTags = useCallback(
+    async (
+      targetContactId = contactId,
+      targetAccountId = accountId,
+      version = requestVersionRef.current,
+    ) => {
+      if (!targetContactId || !targetAccountId) return;
+
+      setLoadingTags(true);
+      setSectionError("tags", null);
+
+      try {
+        const [tagsResult, selectedResult] = await Promise.all([
+          supabase
+            .from("tags")
+            .select("*")
+            .eq("account_id", targetAccountId)
+            .order("name", { ascending: true }),
+          supabase
+            .from("contact_tags")
+            .select("tag_id")
+            .eq("contact_id", targetContactId),
+        ]);
+
+        if (version !== requestVersionRef.current) return;
+
+        if (tagsResult.error) throw tagsResult.error;
+        if (selectedResult.error) throw selectedResult.error;
+
+        setTags((tagsResult.data ?? []) as Tag[]);
+        setContactTagIds(
+          (selectedResult.data ?? []).map((item) => item.tag_id),
+        );
+      } catch (error) {
+        if (version !== requestVersionRef.current) return;
+
+        reportWarning("[contacts:detail:load-tags]", error);
+        setTags([]);
+        setContactTagIds([]);
+        setSectionError(
+          "tags",
+          "Não foi possível carregar as etiquetas deste contato.",
+        );
+      } finally {
+        if (version === requestVersionRef.current) {
+          setLoadingTags(false);
+        }
+      }
+    },
+    [accountId, contactId, setSectionError, supabase],
+  );
+
+  const loadNotes = useCallback(
+    async (
+      targetContactId = contactId,
+      targetAccountId = accountId,
+      version = requestVersionRef.current,
+    ) => {
+      if (!targetContactId || !targetAccountId) return;
+
+      setLoadingNotes(true);
+      setSectionError("notes", null);
+
+      try {
+        const { data, error } = await supabase
+          .from("contact_notes")
+          .select("*")
+          .eq("contact_id", targetContactId)
+          .eq("account_id", targetAccountId)
+          .order("created_at", { ascending: false });
+
+        if (version !== requestVersionRef.current) return;
+        if (error) throw error;
+
+        setNotes((data ?? []) as ContactNote[]);
+      } catch (error) {
+        if (version !== requestVersionRef.current) return;
+
+        reportWarning("[contacts:detail:load-notes]", error);
+        setNotes([]);
+        setSectionError(
+          "notes",
+          "Não foi possível carregar as anotações deste contato.",
+        );
+      } finally {
+        if (version === requestVersionRef.current) {
+          setLoadingNotes(false);
+        }
+      }
+    },
+    [accountId, contactId, setSectionError, supabase],
+  );
+
+  const loadCustomFields = useCallback(
+    async (
+      targetContactId = contactId,
+      targetAccountId = accountId,
+      version = requestVersionRef.current,
+    ) => {
+      if (!targetContactId || !targetAccountId) return;
+
+      setLoadingCustom(true);
+      setSectionError("custom", null);
+
+      try {
+        const [fieldsResult, valuesResult] = await Promise.all([
+          supabase
+            .from("custom_fields")
+            .select("*")
+            .eq("account_id", targetAccountId)
+            .order("field_name", { ascending: true }),
+          supabase
+            .from("contact_custom_values")
+            .select("*")
+            .eq("contact_id", targetContactId),
+        ]);
+
+        if (version !== requestVersionRef.current) return;
+
+        if (fieldsResult.error) throw fieldsResult.error;
+        if (valuesResult.error) throw valuesResult.error;
+
+        const loadedFields = (fieldsResult.data ?? []) as CustomField[];
+        const allowedFieldIds = new Set(
+          loadedFields.map((field) => field.id),
+        );
+
+        const valueMap: Record<string, string> = {};
+        const valueIdMap: CustomValueIdMap = {};
+
+        for (const item of valuesResult.data ?? []) {
+          if (!allowedFieldIds.has(item.custom_field_id)) continue;
+
+          valueMap[item.custom_field_id] = item.value ?? "";
+          valueIdMap[item.custom_field_id] = item.id;
+        }
+
+        setCustomFields(loadedFields);
+        setCustomValues(valueMap);
+        setCustomValueIds(valueIdMap);
+      } catch (error) {
+        if (version !== requestVersionRef.current) return;
+
+        reportWarning("[contacts:detail:load-custom-fields]", error);
+        setCustomFields([]);
+        setCustomValues({});
+        setCustomValueIds({});
+        setSectionError(
+          "custom",
+          "Não foi possível carregar os campos personalizados.",
+        );
+      } finally {
+        if (version === requestVersionRef.current) {
+          setLoadingCustom(false);
+        }
+      }
+    },
+    [accountId, contactId, setSectionError, supabase],
+  );
+
+  const loadDeals = useCallback(
+    async (
+      targetContactId = contactId,
+      targetAccountId = accountId,
+      version = requestVersionRef.current,
+    ) => {
+      if (!targetContactId || !targetAccountId) return;
+
+      setLoadingDeals(true);
+      setSectionError("deals", null);
+
+      try {
+        const { data, error } = await supabase
+          .from("deals")
+          .select(
+            "id, title, value, currency, status, created_at, stage:pipeline_stages(id, name, color)",
+          )
+          .eq("contact_id", targetContactId)
+          .eq("account_id", targetAccountId)
+          .order("created_at", { ascending: false });
+
+        if (version !== requestVersionRef.current) return;
+        if (error) throw error;
+
+        setDeals((data ?? []) as Deal[]);
+      } catch (error) {
+        if (version !== requestVersionRef.current) return;
+
+        reportWarning("[contacts:detail:load-deals]", error);
+        setDeals([]);
+        setSectionError(
+          "deals",
+          "Não foi possível carregar os negócios deste contato.",
+        );
+      } finally {
+        if (version === requestVersionRef.current) {
+          setLoadingDeals(false);
+        }
+      }
+    },
+    [accountId, contactId, setSectionError, supabase],
+  );
+
+  const loadContact = useCallback(async () => {
+    if (!contactId || !accountId) return;
+
+    const version = ++requestVersionRef.current;
+
+    setLoadingContact(true);
+    setContactError(null);
+
+    try {
+      const { data, error } = await supabase
+        .from("contacts")
+        .select(CONTACT_SELECT)
+        .eq("id", contactId)
+        .eq("account_id", accountId)
+        .maybeSingle();
+
+      if (version !== requestVersionRef.current) return;
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error("CONTACT_NOT_FOUND");
+      }
+
+      const loadedContact = data as ContactRecord;
+
+      setContact(loadedContact);
+      fillContactForm(loadedContact);
+
+      // Cada seção cuida do próprio erro. Uma tabela secundária com problema
+      // não impede mais a abertura e edição dos dados principais do contato.
+      void loadTags(contactId, accountId, version);
+      void loadNotes(contactId, accountId, version);
+      void loadCustomFields(contactId, accountId, version);
+      void loadDeals(contactId, accountId, version);
+    } catch (error) {
+      if (version !== requestVersionRef.current) return;
+
+      reportWarning("[contacts:detail:load-contact]", error);
+      setContact(null);
+
+      const normalized = normalizeError(error);
+      setContactError(
+        normalized.message === "CONTACT_NOT_FOUND"
+          ? "Contato não encontrado nesta conta."
+          : "Não foi possível carregar este contato.",
+      );
+    } finally {
+      if (version === requestVersionRef.current) {
+        setLoadingContact(false);
+      }
     }
-    setLoading(false);
-  }, [contactId, supabase]);
-
-  const fetchTags = useCallback(async () => {
-    if (!contactId) return;
-
-    const [tagsRes, contactTagsRes] = await Promise.all([
-      supabase.from('tags').select('*').order('name'),
-      supabase.from('contact_tags').select('tag_id').eq('contact_id', contactId),
-    ]);
-
-    if (tagsRes.data) setAllTags(tagsRes.data);
-    if (contactTagsRes.data) {
-      setContactTagIds(contactTagsRes.data.map((ct) => ct.tag_id));
-    }
-  }, [contactId, supabase]);
-
-  const fetchNotes = useCallback(async () => {
-    if (!contactId) return;
-    setLoadingNotes(true);
-
-    const { data } = await supabase
-      .from('contact_notes')
-      .select('*')
-      .eq('contact_id', contactId)
-      .order('created_at', { ascending: false });
-
-    if (data) setNotes(data);
-    setLoadingNotes(false);
-  }, [contactId, supabase]);
-
-  const fetchCustomFields = useCallback(async () => {
-    if (!contactId) return;
-    setLoadingCustom(true);
-
-    const [fieldsRes, valuesRes] = await Promise.all([
-      supabase.from('custom_fields').select('*').order('field_name'),
-      supabase
-        .from('contact_custom_values')
-        .select('*')
-        .eq('contact_id', contactId),
-    ]);
-
-    if (fieldsRes.data) setCustomFields(fieldsRes.data);
-    if (valuesRes.data) {
-      const map: Record<string, string> = {};
-      valuesRes.data.forEach((v) => {
-        map[v.custom_field_id] = v.value ?? '';
-      });
-      setCustomValues(map);
-    }
-    setLoadingCustom(false);
-  }, [contactId, supabase]);
-
-  const fetchDeals = useCallback(async () => {
-    if (!contactId) return;
-    setLoadingDeals(true);
-    const { data } = await supabase
-      .from('deals')
-      .select('*, stage:pipeline_stages(*)')
-      .eq('contact_id', contactId)
-      .order('created_at', { ascending: false });
-    setDeals((data ?? []) as Deal[]);
-    setLoadingDeals(false);
-  }, [contactId, supabase]);
+  }, [
+    accountId,
+    contactId,
+    fillContactForm,
+    loadCustomFields,
+    loadDeals,
+    loadNotes,
+    loadTags,
+    supabase,
+  ]);
 
   useEffect(() => {
-    if (open && contactId) {
-      fetchContact();
-      fetchTags();
-      fetchNotes();
-      fetchCustomFields();
-      fetchDeals();
+    if (!open) {
+      requestVersionRef.current += 1;
+      resetView();
+      return;
     }
-  }, [open, contactId, fetchContact, fetchTags, fetchNotes, fetchCustomFields, fetchDeals]);
+
+    resetView();
+
+    if (!contactId) {
+      setContactError("Nenhum contato foi selecionado.");
+      return;
+    }
+
+    if (!accountId) {
+      setLoadingContact(true);
+      return;
+    }
+
+    void loadContact();
+  }, [accountId, contactId, loadContact, open, resetView]);
+
+  useEffect(() => {
+    return () => {
+      requestVersionRef.current += 1;
+
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
+
+  function handleSheetOpenChange(nextOpen: boolean) {
+    if (!nextOpen && hasPendingOperation) {
+      toast.info("Aguarde a operação atual terminar.");
+      return;
+    }
+
+    onOpenChange(nextOpen);
+  }
+
+  async function safelyNotifyUpdated() {
+    try {
+      await onUpdated();
+    } catch (error) {
+      reportWarning("[contacts:detail:on-updated]", error);
+    }
+  }
 
   async function copyPhone() {
-    if (!contact) return;
-    await navigator.clipboard.writeText(contact.phone);
-    setCopiedPhone(true);
-    setTimeout(() => setCopiedPhone(false), 2000);
+    if (!contact?.phone) return;
+
+    try {
+      await navigator.clipboard.writeText(contact.phone);
+
+      setCopiedPhone(true);
+
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+      }
+
+      copyTimerRef.current = setTimeout(() => {
+        setCopiedPhone(false);
+      }, 2_000);
+    } catch (error) {
+      reportWarning("[contacts:detail:copy-phone]", error);
+      toast.error("Não foi possível copiar o telefone.");
+    }
+  }
+
+  function openWhatsApp() {
+    if (!contact?.phone) return;
+
+    const whatsappNumber = getWhatsAppNumber(contact.phone);
+    if (!whatsappNumber) {
+      toast.error("Telefone inválido para abrir no WhatsApp.");
+      return;
+    }
+
+    window.open(
+      `https://wa.me/${whatsappNumber}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  }
+
+  async function checkDuplicatePhone() {
+    if (!accountId || !phone.trim() || !contactId) {
+      setDuplicatePhone(null);
+      return;
+    }
+
+    setCheckingDuplicate(true);
+
+    try {
+      const existing = await findExistingContact(
+        supabase,
+        accountId,
+        phone.trim(),
+      );
+
+      if (!existing || existing.id === contactId) {
+        setDuplicatePhone(null);
+        return;
+      }
+
+      setDuplicatePhone({
+        contact: existing,
+        exact: isExactMatch(existing, phone.trim()),
+      });
+    } catch (error) {
+      reportWarning("[contacts:detail:check-duplicate]", error);
+      setDuplicatePhone(null);
+    } finally {
+      setCheckingDuplicate(false);
+    }
   }
 
   async function saveDetails() {
-    if (!contactId || !editPhone.trim()) {
-      toast.error(t('toastPhoneRequired'));
+    if (!contactId || !accountId) {
+      toast.error("Sua conta ainda não foi carregada.");
+      return;
+    }
+
+    const cleanName = name.trim();
+    const cleanPhone = phone.trim();
+    const cleanEmail = email.trim();
+    const cleanCompany = company.trim();
+
+    if (!cleanName) {
+      toast.error("Informe o nome do contato.");
+      return;
+    }
+
+    if (!cleanPhone) {
+      toast.error("Informe o telefone do contato.");
+      return;
+    }
+
+    if (!isValidBrazilianPhone(cleanPhone)) {
+      toast.error("Informe um telefone válido com DDD.");
+      return;
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      toast.error("Informe um e-mail válido.");
+      return;
+    }
+
+    if (duplicatePhone?.exact) {
+      toast.error("Outro contato já utiliza este telefone.");
       return;
     }
 
     setSavingDetails(true);
-    const { data: updated, error } = await supabase
-        .from('contacts')
+
+    try {
+      const { data, error } = await supabase
+        .from("contacts")
         .update({
-          name: editName.trim() || null,
-          phone: normalizePhone(editPhone),
-        email: editEmail.trim() || null,
-        company: editCompany.trim() || null,
-        updated_at: new Date().toISOString(),
+          name: cleanName,
+          phone: normalizePhone(cleanPhone),
+          email: cleanEmail || null,
+          company: cleanCompany || null,
         })
-        .eq('id', contactId)
-        .eq('account_id', accountId ?? '')
-        .select('id')
+        .eq("id", contactId)
+        .eq("account_id", accountId)
+        .select(CONTACT_SELECT)
         .maybeSingle();
 
-      if (error || !updated) {
-      toast.error(t('toastUpdateFailed'));
-    } else {
-      toast.success(t('toastUpdated'));
-      fetchContact();
-      onUpdated();
+      if (error) throw error;
+      if (!data) {
+        throw new Error("Contato não encontrado nesta conta.");
+      }
+
+      const updatedContact = data as ContactRecord;
+
+      setContact(updatedContact);
+      fillContactForm(updatedContact);
+
+      toast.success("Contato atualizado com sucesso.");
+      await safelyNotifyUpdated();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        toast.error("Outro contato já utiliza este telefone.");
+        return;
+      }
+
+      reportWarning("[contacts:detail:save]", error);
+
+      const normalized = normalizeError(error);
+      if (normalized.message.includes("schema cache")) {
+        toast.error(
+          "O formulário está tentando usar um campo inexistente no banco.",
+        );
+      } else if (normalized.message.includes("row-level security")) {
+        toast.error(
+          "Você não tem permissão para editar este contato.",
+        );
+      } else {
+        toast.error("Não foi possível atualizar o contato.");
+      }
+    } finally {
+      setSavingDetails(false);
     }
-    setSavingDetails(false);
   }
 
   async function toggleTag(tagId: string) {
-    if (!contactId) return;
-    setSavingTags(true);
+    if (!contactId || !accountId || savingTagId) return;
 
-    const isSelected = contactTagIds.includes(tagId);
-
-    if (isSelected) {
-      const { error } = await supabase
-        .from('contact_tags')
-        .delete()
-        .eq('contact_id', contactId)
-        .eq('tag_id', tagId);
-      if (!error) {
-        setContactTagIds((prev) => prev.filter((id) => id !== tagId));
-        onUpdated();
-      }
-    } else {
-      const { error } = await supabase
-        .from('contact_tags')
-        .insert({ contact_id: contactId, tag_id: tagId });
-      if (!error) {
-        setContactTagIds((prev) => [...prev, tagId]);
-        onUpdated();
-      }
-    }
-    setSavingTags(false);
-  }
-
-  async function addNote() {
-    if (!contactId || !newNote.trim()) return;
-    setSavingNote(true);
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user;
-    if (!user || !accountId) {
-      toast.error(t('toastNotAuthenticated'));
-      setSavingNote(false);
+    const belongsToAccount = tags.some((tag) => tag.id === tagId);
+    if (!belongsToAccount) {
+      toast.error("Esta etiqueta não pertence à sua conta.");
       return;
     }
 
-    const { error } = await supabase.from('contact_notes').insert({
-      contact_id: contactId,
-      account_id: accountId,
-      user_id: user.id,
-      note_text: newNote.trim(),
-    });
+    const wasSelected = contactTagIds.includes(tagId);
+    setSavingTagId(tagId);
 
-    if (error) {
-      toast.error(t('toastNoteAddFailed'));
-    } else {
-      setNewNote('');
-      fetchNotes();
-      toast.success(t('toastNoteAdded'));
+    try {
+      if (wasSelected) {
+        const { error } = await supabase
+          .from("contact_tags")
+          .delete()
+          .eq("contact_id", contactId)
+          .eq("tag_id", tagId);
+
+        if (error) throw error;
+
+        setContactTagIds((current) =>
+          current.filter((id) => id !== tagId),
+        );
+      } else {
+        const { error } = await supabase
+          .from("contact_tags")
+          .insert({
+            contact_id: contactId,
+            tag_id: tagId,
+          });
+
+        if (error) throw error;
+
+        setContactTagIds((current) =>
+          current.includes(tagId)
+            ? current
+            : [...current, tagId],
+        );
+      }
+
+      await safelyNotifyUpdated();
+    } catch (error) {
+      reportWarning("[contacts:detail:toggle-tag]", error);
+      toast.error("Não foi possível atualizar a etiqueta.");
+    } finally {
+      setSavingTagId(null);
     }
-    setSavingNote(false);
+  }
+
+  async function addNote() {
+    if (!contactId || !accountId) return;
+
+    const cleanNote = newNote.trim();
+
+    if (!cleanNote) {
+      toast.error("Escreva uma anotação antes de salvar.");
+      return;
+    }
+
+    if (cleanNote.length > 2_000) {
+      toast.error("A anotação pode ter no máximo 2.000 caracteres.");
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error("Usuário não autenticado.");
+      return;
+    }
+
+    setSavingNote(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("contact_notes")
+        .insert({
+          contact_id: contactId,
+          account_id: accountId,
+          user_id: user.id,
+          note_text: cleanNote,
+        })
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      setNotes((current) => [data as ContactNote, ...current]);
+      setNewNote("");
+      toast.success("Anotação adicionada.");
+    } catch (error) {
+      reportWarning("[contacts:detail:add-note]", error);
+      toast.error("Não foi possível adicionar a anotação.");
+    } finally {
+      setSavingNote(false);
+    }
   }
 
   async function deleteNote(noteId: string) {
-    const { error } = await supabase
-      .from('contact_notes')
-      .delete()
-      .eq('id', noteId);
+    if (!contactId || !accountId || deletingNoteId) return;
 
-    if (error) {
-      toast.error(t('toastNoteDeleteFailed'));
-    } else {
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      toast.success(t('toastNoteDeleted'));
+    const confirmed = window.confirm(
+      "Deseja realmente excluir esta anotação?",
+    );
+
+    if (!confirmed) return;
+
+    setDeletingNoteId(noteId);
+
+    try {
+      const { data, error } = await supabase
+        .from("contact_notes")
+        .delete()
+        .eq("id", noteId)
+        .eq("contact_id", contactId)
+        .eq("account_id", accountId)
+        .select("id")
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error("Anotação não encontrada.");
+
+      setNotes((current) =>
+        current.filter((note) => note.id !== noteId),
+      );
+      toast.success("Anotação excluída.");
+    } catch (error) {
+      reportWarning("[contacts:detail:delete-note]", error);
+      toast.error("Não foi possível excluir a anotação.");
+    } finally {
+      setDeletingNoteId(null);
     }
   }
 
   async function saveCustomFields() {
-    if (!contactId) return;
+    if (!contactId || !accountId || savingCustom) return;
+
     setSavingCustom(true);
 
     try {
-      // Delete existing values and re-insert
-      await supabase
-        .from('contact_custom_values')
-        .delete()
-        .eq('contact_id', contactId);
+      const allowedFieldIds = new Set(
+        customFields.map((field) => field.id),
+      );
 
-      const rows = Object.entries(customValues)
-        .filter(([, val]) => val.trim())
-        .map(([fieldId, val]) => ({
-          contact_id: contactId,
-          custom_field_id: fieldId,
-          value: val.trim(),
-        }));
+      for (const field of customFields) {
+        if (!allowedFieldIds.has(field.id)) continue;
 
-      if (rows.length > 0) {
-        const { error } = await supabase
-          .from('contact_custom_values')
-          .insert(rows);
-        if (error) throw error;
+        const value = (customValues[field.id] ?? "").trim();
+        const existingValueId = customValueIds[field.id];
+
+        if (existingValueId && value) {
+          const { error } = await supabase
+            .from("contact_custom_values")
+            .update({ value })
+            .eq("id", existingValueId)
+            .eq("contact_id", contactId);
+
+          if (error) throw error;
+          continue;
+        }
+
+        if (existingValueId && !value) {
+          const { error } = await supabase
+            .from("contact_custom_values")
+            .delete()
+            .eq("id", existingValueId)
+            .eq("contact_id", contactId);
+
+          if (error) throw error;
+          continue;
+        }
+
+        if (!existingValueId && value) {
+          const { error } = await supabase
+            .from("contact_custom_values")
+            .insert({
+              contact_id: contactId,
+              custom_field_id: field.id,
+              value,
+            });
+
+          if (error) throw error;
+        }
       }
 
-      toast.success(t('toastCustomFieldsSaved'));
-    } catch {
-      toast.error(t('toastCustomFieldsFailed'));
+      await loadCustomFields(
+        contactId,
+        accountId,
+        requestVersionRef.current,
+      );
+
+      toast.success("Campos personalizados salvos.");
+    } catch (error) {
+      reportWarning("[contacts:detail:save-custom-fields]", error);
+
+      // Recarrega os valores para a tela representar o que realmente
+      // ficou salvo caso alguma operação intermediária tenha falhado.
+      await loadCustomFields(
+        contactId,
+        accountId,
+        requestVersionRef.current,
+      );
+
+      toast.error("Não foi possível salvar os campos personalizados.");
+    } finally {
+      setSavingCustom(false);
     }
-    setSavingCustom(false);
   }
 
   async function handleSendTemplate(
     template: MessageTemplate,
     values: TemplateSendValues,
   ) {
-    if (!contactId) return;
+    if (!contactId || !accountId || sendingTemplate) return;
+
     setSendingTemplate(true);
+
     try {
-      const res = await fetch('/api/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/whatsapp/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          // No conversation_id — the route find-or-creates one for this
-          // contact, mirroring the inbox template-send payload otherwise.
           contact_id: contactId,
-          message_type: 'template',
+          message_type: "template",
           template_name: template.name,
           template_language: template.language,
           template_message_params: {
@@ -360,410 +1028,749 @@ export function ContactDetailView({
         }),
       });
 
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const reason = payload?.error || `HTTP ${res.status}`;
-        toast.error(t('toastTemplateFailed', { reason }));
-        return;
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const reason =
+          typeof payload?.error === "string"
+            ? payload.error
+            : `HTTP ${response.status}`;
+
+        throw new Error(reason);
       }
 
-      toast.success(t('toastTemplateSent', { name: template.name }));
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : 'network error';
-      toast.error(`Failed to send template: ${reason}`);
+      setTemplatePickerOpen(false);
+      toast.success(`Template "${template.name}" enviado.`);
+    } catch (error) {
+      reportWarning("[contacts:detail:send-template]", error);
+
+      const normalized = normalizeError(error);
+      toast.error(
+        `Não foi possível enviar o template: ${normalized.message}`,
+      );
     } finally {
       setSendingTemplate(false);
     }
   }
 
-  function getInitials(name?: string | null) {
-    if (!name) return '?';
-    return name
-      .split(' ')
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  }
-
   return (
     <>
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="bg-popover border-border text-popover-foreground sm:max-w-lg w-full p-0"
-      >
-        {loading || !contact ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="size-6 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="flex flex-col h-full">
-            {/* Header */}
-            <SheetHeader className="p-4 border-b border-border/50">
-              <div className="flex items-center gap-3">
-                <Avatar className="size-12 bg-muted border border-border">
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                    {getInitials(contact.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <SheetTitle className="text-popover-foreground truncate">
-                    {contact.name || t('unnamed')}
-                  </SheetTitle>
-                  <SheetDescription className="text-muted-foreground text-xs mt-0.5">
-                    {t('contactDetailsDesc')}
-                  </SheetDescription>
-                  <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                    <button
-                      onClick={copyPhone}
-                      className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
-                    >
-                      <Phone className="size-3" />
-                      {formatBrazilianPhone(contact.phone)}
-                      {copiedPhone ? (
-                        <Check className="size-3 text-primary" />
-                      ) : (
-                        <Copy className="size-3" />
-                      )}
-                    </button>
-                    {contact.email && (
-                      <span className="flex items-center gap-1">
-                        <Mail className="size-3" />
-                        {contact.email}
-                      </span>
-                    )}
-                    {contact.company && (
-                      <span className="flex items-center gap-1">
-                        <Building2 className="size-3" />
-                        {contact.company}
-                      </span>
-                    )}
+      <Sheet open={open} onOpenChange={handleSheetOpenChange}>
+        <SheetContent
+          side="right"
+          className="w-full max-w-full gap-0 overflow-hidden border-border bg-popover p-0 text-popover-foreground sm:max-w-2xl"
+        >
+          {loadingContact ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3">
+              <Loader2 className="size-7 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">
+                Carregando contato...
+              </p>
+            </div>
+          ) : contactError || !contact ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+              <div className="flex size-12 items-center justify-center rounded-full bg-destructive/10">
+                <AlertCircle className="size-6 text-destructive" />
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">
+                  Não foi possível abrir o contato
+                </p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  {contactError ??
+                    "O contato solicitado não está disponível."}
+                </p>
+              </div>
+
+              {contactId && accountId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void loadContact()}
+                >
+                  <RefreshCw className="size-4" />
+                  Tentar novamente
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="flex h-full min-h-0 flex-col">
+              <SheetHeader className="shrink-0 border-b border-border/70 bg-background/30 p-5 text-left">
+                <div className="flex items-start gap-4">
+                  <Avatar className="size-14 shrink-0 border border-border shadow-sm">
+                    <AvatarFallback className="bg-primary/10 font-semibold text-primary">
+                      {getInitials(contact.name)}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="min-w-0 flex-1">
+                    <SheetTitle className="truncate text-xl text-foreground">
+                      {contact.name || "Contato sem nome"}
+                    </SheetTitle>
+
+                    <SheetDescription className="mt-1 text-sm">
+                      Informações, etiquetas, anotações e negócios do
+                      contato.
+                    </SheetDescription>
+
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                      <button
+                        type="button"
+                        onClick={() => void copyPhone()}
+                        className="inline-flex items-center gap-1.5 transition-colors hover:text-primary"
+                      >
+                        <Phone className="size-3.5" />
+                        {formatBrazilianPhone(contact.phone)}
+                        {copiedPhone ? (
+                          <Check className="size-3.5 text-primary" />
+                        ) : (
+                          <Copy className="size-3.5" />
+                        )}
+                      </button>
+
+                      {contact.email ? (
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                          <Mail className="size-3.5 shrink-0" />
+                          <span className="truncate">
+                            {contact.email}
+                          </span>
+                        </span>
+                      ) : null}
+
+                      {contact.company ? (
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                          <Building2 className="size-3.5 shrink-0" />
+                          <span className="truncate">
+                            {contact.company}
+                          </span>
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="mt-3">
-                <Button
-                  size="sm"
-                  onClick={() => setTemplatePickerOpen(true)}
-                  disabled={sendingTemplate}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {sendingTemplate ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <LayoutTemplate className="size-4" />
-                  )}
-                  {t('sendTemplateBtn')}
-                </Button>
-              </div>
-            </SheetHeader>
 
-            {/* Tabs */}
-            <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
-              <TabsList className="bg-muted/50 border-b border-border mx-4 mt-3">
-                <TabsTrigger
-                  value="details"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                >
-                  {t('tabs.details')}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="tags"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                >
-                  {t('tabs.tags', { fallback: 'Tags' })}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="notes"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                >
-                  {t('tabs.notes')}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="custom"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                >
-                  {t('tabs.custom')}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="deals"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
-                >
-                  {t('tabs.deals')}
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Details Tab */}
-              <TabsContent value="details" className="flex-1 overflow-y-auto px-4 py-3">
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">{t('company', { fallback: 'Name' })}</Label>
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">
-                      {t('phone')} <span className="text-red-400">*</span>
-                    </Label>
-                    <Input
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">{t('email')}</Label>
-                    <Input
-                      value={editEmail}
-                      onChange={(e) => setEditEmail(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">{t('company')}</Label>
-                    <Input
-                      value={editCompany}
-                      onChange={(e) => setEditCompany(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
+                <div className="mt-4 flex flex-wrap gap-2">
                   <Button
-                    onClick={saveDetails}
-                    disabled={savingDetails}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
+                    type="button"
                     size="sm"
+                    onClick={openWhatsApp}
+                    variant="outline"
                   >
-                    {savingDetails ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                    <MessageCircle className="size-4" />
+                    Abrir WhatsApp
+                    <ExternalLink className="size-3.5" />
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setTemplatePickerOpen(true)}
+                    disabled={sendingTemplate || !contact.phone}
+                  >
+                    {sendingTemplate ? (
+                      <Loader2 className="size-4 animate-spin" />
                     ) : (
-                      <Save className="size-3.5" />
+                      <LayoutTemplate className="size-4" />
                     )}
-                    {t('saveChangesBtn')}
+                    Enviar template
                   </Button>
                 </div>
-              </TabsContent>
+              </SheetHeader>
 
-              {/* Tags Tab */}
-              <TabsContent value="tags" className="flex-1 overflow-y-auto px-4 py-3">
-                <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    {t('tagsTab.clickTagDesc')}
-                  </p>
-                  {allTags.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {t('tagsTab.noTagsAvailable')}
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {allTags.map((tag) => {
-                        const selected = contactTagIds.includes(tag.id);
-                        return (
-                          <button
-                            key={tag.id}
-                            onClick={() => toggleTag(tag.id)}
-                            disabled={savingTags}
-                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer ${
-                              selected
-                                ? 'ring-2 ring-primary ring-offset-1 ring-offset-border'
-                                : 'opacity-50 hover:opacity-80'
-                            }`}
-                            style={{
-                              backgroundColor: tag.color + '20',
-                              color: tag.color,
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="flex min-h-0 flex-1 flex-col"
+              >
+                <div className="shrink-0 overflow-x-auto border-b border-border/60 px-4 py-3">
+                  <TabsList className="h-auto w-max min-w-full justify-start bg-muted/60 p-1">
+                    <TabsTrigger
+                      value="details"
+                      className="gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary"
+                    >
+                      <UserRound className="size-3.5" />
+                      Dados
+                    </TabsTrigger>
+
+                    <TabsTrigger
+                      value="tags"
+                      className="gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary"
+                    >
+                      <Tags className="size-3.5" />
+                      Etiquetas
+                    </TabsTrigger>
+
+                    <TabsTrigger
+                      value="notes"
+                      className="gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary"
+                    >
+                      <StickyNote className="size-3.5" />
+                      Anotações
+                    </TabsTrigger>
+
+                    <TabsTrigger
+                      value="custom"
+                      className="gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary"
+                    >
+                      <ListFilter className="size-3.5" />
+                      Personalizados
+                    </TabsTrigger>
+
+                    <TabsTrigger
+                      value="deals"
+                      className="gap-1.5 data-[state=active]:bg-background data-[state=active]:text-primary"
+                    >
+                      <BriefcaseBusiness className="size-3.5" />
+                      Negócios
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+
+                <TabsContent
+                  value="details"
+                  className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5"
+                >
+                  <div className="mx-auto max-w-xl space-y-5">
+                    <div className="rounded-xl border border-border bg-background/40 p-4">
+                      <div className="mb-4">
+                        <h3 className="font-medium text-foreground">
+                          Dados principais
+                        </h3>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Atualize as informações de identificação e
+                          contato.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label htmlFor="contact-detail-name">
+                            Nome{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            id="contact-detail-name"
+                            value={name}
+                            onChange={(event) =>
+                              setName(event.target.value)
+                            }
+                            disabled={savingDetails}
+                            placeholder="Nome do contato"
+                            autoComplete="name"
+                          />
+                        </div>
+
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label htmlFor="contact-detail-phone">
+                            Telefone{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <PhoneInput
+                            id="contact-detail-phone"
+                            value={phone}
+                            onChange={(event) => {
+                              setPhone(event.target.value);
+                              setDuplicatePhone(null);
                             }}
+                            onBlur={() =>
+                              void checkDuplicatePhone()
+                            }
+                            disabled={savingDetails}
+                            placeholder="(11) 99999-9999"
+                          />
+
+                          {checkingDuplicate ? (
+                            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Loader2 className="size-3 animate-spin" />
+                              Verificando telefone...
+                            </p>
+                          ) : null}
+
+                          {duplicatePhone ? (
+                            <div
+                              className={
+                                duplicatePhone.exact
+                                  ? "flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive"
+                                  : "flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-300"
+                              }
+                            >
+                              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                              <p>
+                                {duplicatePhone.exact
+                                  ? `Este telefone já pertence a ${
+                                      duplicatePhone.contact.name ||
+                                      "outro contato"
+                                    }.`
+                                  : `Existe um telefone semelhante em ${
+                                      duplicatePhone.contact.name ||
+                                      "outro contato"
+                                    }.`}
+                              </p>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="contact-detail-email">
+                            E-mail
+                          </Label>
+                          <Input
+                            id="contact-detail-email"
+                            type="email"
+                            value={email}
+                            onChange={(event) =>
+                              setEmail(event.target.value)
+                            }
+                            disabled={savingDetails}
+                            placeholder="contato@empresa.com"
+                            autoComplete="email"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="contact-detail-company">
+                            Empresa
+                          </Label>
+                          <Input
+                            id="contact-detail-company"
+                            value={company}
+                            onChange={(event) =>
+                              setCompany(event.target.value)
+                            }
+                            disabled={savingDetails}
+                            placeholder="Nome da empresa"
+                            autoComplete="organization"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      onClick={() => void saveDetails()}
+                      disabled={
+                        savingDetails ||
+                        checkingDuplicate ||
+                        Boolean(duplicatePhone?.exact)
+                      }
+                      className="w-full"
+                    >
+                      {savingDetails ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Save className="size-4" />
+                      )}
+                      {savingDetails
+                        ? "Salvando..."
+                        : "Salvar alterações"}
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                <TabsContent
+                  value="tags"
+                  className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5"
+                >
+                  {loadingTags ? (
+                    <SectionLoader label="Carregando etiquetas..." />
+                  ) : sectionErrors.tags ? (
+                    <SectionError
+                      message={sectionErrors.tags}
+                      onRetry={() => void loadTags()}
+                    />
+                  ) : tags.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border py-12 text-center">
+                      <Tags className="mx-auto size-6 text-muted-foreground" />
+                      <p className="mt-3 text-sm font-medium">
+                        Nenhuma etiqueta disponível
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Crie etiquetas para organizar seus contatos.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-medium text-foreground">
+                          Etiquetas do contato
+                        </h3>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Clique para adicionar ou remover uma etiqueta.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {tags.map((tag) => {
+                          const selected =
+                            contactTagIds.includes(tag.id);
+                          const saving = savingTagId === tag.id;
+                          const color = safeTagColor(tag.color);
+
+                          return (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() =>
+                                void toggleTag(tag.id)
+                              }
+                              disabled={savingTagId !== null}
+                              aria-pressed={selected}
+                              className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                                selected
+                                  ? "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                                  : "opacity-65 hover:opacity-100"
+                              }`}
+                              style={{
+                                color,
+                                borderColor: `${color}70`,
+                                backgroundColor: `${color}18`,
+                              }}
+                            >
+                              {saving ? (
+                                <Loader2 className="mr-1.5 size-3 animate-spin" />
+                              ) : selected ? (
+                                <Check className="mr-1.5 size-3" />
+                              ) : null}
+                              {tag.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent
+                  value="notes"
+                  className="mt-0 flex min-h-0 flex-1 flex-col px-5 py-5"
+                >
+                  {sectionErrors.notes ? (
+                    <SectionError
+                      message={sectionErrors.notes}
+                      onRetry={() => void loadNotes()}
+                    />
+                  ) : (
+                    <>
+                      <div className="shrink-0 rounded-xl border border-border bg-background/40 p-4">
+                        <Label htmlFor="contact-new-note">
+                          Nova anotação
+                        </Label>
+
+                        <Textarea
+                          id="contact-new-note"
+                          value={newNote}
+                          onChange={(event) =>
+                            setNewNote(
+                              event.target.value.slice(0, 2_000),
+                            )
+                          }
+                          disabled={savingNote}
+                          placeholder="Registre informações importantes sobre este contato..."
+                          className="mt-2 min-h-24 resize-none"
+                        />
+
+                        <div className="mt-2 flex items-center justify-between gap-3">
+                          <span className="text-xs text-muted-foreground">
+                            {newNote.length}/2.000
+                          </span>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => void addNote()}
+                            disabled={!newNote.trim() || savingNote}
                           >
-                            {selected && <Check className="size-3 mr-1" />}
-                            {tag.name}
-                          </button>
+                            {savingNote ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Plus className="size-4" />
+                            )}
+                            Adicionar
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+                        {loadingNotes ? (
+                          <SectionLoader label="Carregando anotações..." />
+                        ) : notes.length === 0 ? (
+                          <div className="rounded-xl border border-dashed border-border py-12 text-center">
+                            <StickyNote className="mx-auto size-6 text-muted-foreground" />
+                            <p className="mt-3 text-sm font-medium">
+                              Nenhuma anotação
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              As anotações adicionadas aparecerão aqui.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 pb-2">
+                            {notes.map((note) => (
+                              <article
+                                key={note.id}
+                                className="group rounded-xl border border-border bg-background/40 p-4"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/85">
+                                    {note.note_text}
+                                  </p>
+
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      void deleteNote(note.id)
+                                    }
+                                    disabled={
+                                      deletingNoteId !== null
+                                    }
+                                    aria-label="Excluir anotação"
+                                    className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                                  >
+                                    {deletingNoteId === note.id ? (
+                                      <Loader2 className="size-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="size-4" />
+                                    )}
+                                  </Button>
+                                </div>
+
+                                <p className="mt-3 text-xs text-muted-foreground">
+                                  {new Date(
+                                    note.created_at,
+                                  ).toLocaleString("pt-BR", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </p>
+                              </article>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </TabsContent>
+
+                <TabsContent
+                  value="custom"
+                  className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5"
+                >
+                  {loadingCustom ? (
+                    <SectionLoader label="Carregando campos personalizados..." />
+                  ) : sectionErrors.custom ? (
+                    <SectionError
+                      message={sectionErrors.custom}
+                      onRetry={() => void loadCustomFields()}
+                    />
+                  ) : customFields.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border py-12 text-center">
+                      <ListFilter className="mx-auto size-6 text-muted-foreground" />
+                      <p className="mt-3 text-sm font-medium">
+                        Nenhum campo personalizado
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Crie campos personalizados nas configurações.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mx-auto max-w-xl space-y-4">
+                      <div>
+                        <h3 className="font-medium text-foreground">
+                          Informações personalizadas
+                        </h3>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Preencha dados adicionais específicos deste
+                          contato.
+                        </p>
+                      </div>
+
+                      <div className="space-y-4 rounded-xl border border-border bg-background/40 p-4">
+                        {customFields.map((field) => {
+                          const fieldType = (
+                            field as CustomField & {
+                              field_type?: string | null;
+                            }
+                          ).field_type;
+
+                          return (
+                            <div
+                              key={field.id}
+                              className="space-y-2"
+                            >
+                              <Label
+                                htmlFor={`contact-custom-${field.id}`}
+                              >
+                                {field.field_name}
+                              </Label>
+
+                              {fieldType === "textarea" ? (
+                                <Textarea
+                                  id={`contact-custom-${field.id}`}
+                                  value={
+                                    customValues[field.id] ?? ""
+                                  }
+                                  onChange={(event) =>
+                                    setCustomValues((current) => ({
+                                      ...current,
+                                      [field.id]:
+                                        event.target.value,
+                                    }))
+                                  }
+                                  disabled={savingCustom}
+                                  className="min-h-20 resize-none"
+                                />
+                              ) : (
+                                <Input
+                                  id={`contact-custom-${field.id}`}
+                                  type={getCustomFieldInputType(
+                                    fieldType,
+                                  )}
+                                  value={
+                                    customValues[field.id] ?? ""
+                                  }
+                                  onChange={(event) =>
+                                    setCustomValues((current) => ({
+                                      ...current,
+                                      [field.id]:
+                                        event.target.value,
+                                    }))
+                                  }
+                                  disabled={savingCustom}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        type="button"
+                        onClick={() => void saveCustomFields()}
+                        disabled={savingCustom}
+                        className="w-full"
+                      >
+                        {savingCustom ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Save className="size-4" />
+                        )}
+                        {savingCustom
+                          ? "Salvando..."
+                          : "Salvar campos personalizados"}
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent
+                  value="deals"
+                  className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5"
+                >
+                  {loadingDeals ? (
+                    <SectionLoader label="Carregando negócios..." />
+                  ) : sectionErrors.deals ? (
+                    <SectionError
+                      message={sectionErrors.deals}
+                      onRetry={() => void loadDeals()}
+                    />
+                  ) : deals.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border py-12 text-center">
+                      <BriefcaseBusiness className="mx-auto size-6 text-muted-foreground" />
+                      <p className="mt-3 text-sm font-medium">
+                        Nenhum negócio encontrado
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Os negócios vinculados ao contato aparecerão
+                        aqui.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {deals.map((deal) => {
+                        const stageColor = safeTagColor(
+                          deal.stage?.color,
+                        );
+                        const numericValue = Number(
+                          deal.value ?? 0,
+                        );
+
+                        return (
+                          <article
+                            key={deal.id}
+                            className="rounded-xl border border-border bg-background/40 p-4 transition-colors hover:bg-muted/30"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <h3 className="truncate text-sm font-medium text-foreground">
+                                  {deal.title}
+                                </h3>
+
+                                <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+                                  <DollarSign className="size-4" />
+                                  {formatCurrency(
+                                    Number.isFinite(numericValue)
+                                      ? numericValue
+                                      : 0,
+                                    deal.currency ||
+                                      defaultCurrency ||
+                                      "BRL",
+                                  )}
+                                </p>
+                              </div>
+
+                              {deal.stage ? (
+                                <span
+                                  className="shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                                  style={{
+                                    color: stageColor,
+                                    borderColor: `${stageColor}60`,
+                                    backgroundColor: `${stageColor}16`,
+                                  }}
+                                >
+                                  {deal.stage.name}
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {deal.status &&
+                            deal.status !== "open" ? (
+                              <div className="mt-3 border-t border-border/60 pt-3 text-xs">
+                                <span
+                                  className={
+                                    deal.status === "won"
+                                      ? "font-medium text-emerald-500"
+                                      : "font-medium text-destructive"
+                                  }
+                                >
+                                  {getDealStatusLabel(
+                                    deal.status,
+                                  )}
+                                </span>
+                              </div>
+                            ) : null}
+                          </article>
                         );
                       })}
                     </div>
                   )}
-                </div>
-              </TabsContent>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
-              {/* Notes Tab */}
-              <TabsContent value="notes" className="flex-1 flex flex-col min-h-0 px-4 py-3">
-                <div className="space-y-2 mb-3">
-                  <Textarea
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder={t('notesTab.placeholder')}
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground min-h-[60px] text-sm resize-none"
-                  />
-                  <Button
-                    onClick={addNote}
-                    disabled={!newNote.trim() || savingNote}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                    size="sm"
-                  >
-                    {savingNote ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Plus className="size-3.5" />
-                    )}
-                    {t('notesTab.save')}
-                  </Button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto space-y-2">
-                  {loadingNotes ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : notes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      {t('notesTab.noNotes')}
-                    </p>
-                  ) : (
-                    notes.map((note) => (
-                      <div
-                        key={note.id}
-                        className="rounded-lg bg-muted/50 border border-border/50 p-3 group"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap flex-1">
-                            {note.note_text}
-                          </p>
-                          <button
-                            onClick={() => deleteNote(note.id)}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all cursor-pointer shrink-0"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1.5">
-                          {new Date(note.created_at).toLocaleDateString('pt-BR', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </TabsContent>
-
-              {/* Custom Fields Tab */}
-              <TabsContent value="custom" className="flex-1 overflow-y-auto px-4 py-3">
-                {loadingCustom ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : customFields.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    {t('noCustomFields')}
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {customFields.map((field) => (
-                      <div key={field.id} className="space-y-1.5">
-                        <Label className="text-muted-foreground text-xs capitalize">
-                          {field.field_name}
-                        </Label>
-                        <Input
-                          value={customValues[field.id] ?? ''}
-                          onChange={(e) =>
-                            setCustomValues((prev) => ({
-                              ...prev,
-                              [field.id]: e.target.value,
-                            }))
-                          }
-                          placeholder={t('enterCustomField', { name: field.field_name })}
-                          className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-muted-foreground"
-                        />
-                      </div>
-                    ))}
-                    <Button
-                      onClick={saveCustomFields}
-                      disabled={savingCustom}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
-                      size="sm"
-                    >
-                      {savingCustom ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        <Save className="size-3.5" />
-                      )}
-                      {t('saveCustomFieldsBtn')}
-                    </Button>
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* Deals Tab */}
-              <TabsContent value="deals" className="flex-1 overflow-y-auto px-4 py-3">
-                {loadingDeals ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="size-5 animate-spin text-primary" />
-                  </div>
-                ) : deals.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">{t('dealsTab.noDeals')}</p>
-                ) : (
-                  <div className="space-y-2">
-                    {deals.map((deal) => (
-                      <div
-                        key={deal.id}
-                        className="rounded-lg border border-border bg-muted/50 p-3"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-foreground">
-                            {deal.title}
-                          </p>
-                          {deal.stage && (
-                            <span
-                              className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                              style={{
-                                backgroundColor: `${deal.stage.color}20`,
-                                color: deal.stage.color,
-                              }}
-                            >
-                              {deal.stage.name}
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <DollarSign className="size-3" />
-                            {formatCurrency(
-                              deal.value ?? 0,
-                              deal.currency || defaultCurrency,
-                            )}
-                          </span>
-                          {deal.status && deal.status !== 'open' && (
-                            <span
-                              className={
-                                deal.status === 'won'
-                                  ? 'text-primary'
-                                  : 'text-red-400'
-                              }
-                            >
-                              {deal.status}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
-    <TemplatePicker
-      open={templatePickerOpen}
-      onOpenChange={setTemplatePickerOpen}
-      onSelect={handleSendTemplate}
-    />
+      <TemplatePicker
+        open={templatePickerOpen}
+        onOpenChange={setTemplatePickerOpen}
+        onSelect={handleSendTemplate}
+      />
     </>
   );
 }
