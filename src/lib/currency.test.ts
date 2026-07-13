@@ -3,10 +3,15 @@ import {
   CURRENCIES,
   DEFAULT_CURRENCY,
   formatCurrency,
+  formatCurrencyDetailed,
   formatCurrencyShort,
 } from "./currency";
 
 describe("formatCurrency", () => {
+  it("formats KPI currency in pt-BR with minor units", () => {
+    expect(formatCurrencyDetailed(0, "BRL")).toContain("0,00");
+    expect(formatCurrencyDetailed(12450, "BRL")).toContain("12.450,00");
+  });
   it("formats whole amounts with no minor units", () => {
     // Use a non-breaking-space-tolerant check: Intl may insert NBSP.
     const out = formatCurrency(1234, "USD");

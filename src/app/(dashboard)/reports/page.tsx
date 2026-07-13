@@ -1,28 +1,274 @@
 'use client';
-import { useCallback,useEffect,useMemo,useState } from 'react';
-import { BarChart3,BriefcaseBusiness,CircleDollarSign,ContactRound,Target,Trophy,TrendingDown,Users } from 'lucide-react';
+
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
+  BarChart3,
+  BriefcaseBusiness,
+  CircleDollarSign,
+  ContactRound,
+  Target,
+  TrendingDown,
+  Trophy,
+  Users,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { formatCurrency } from '@/lib/currency';
 import { normalizeError } from '@/lib/errors/normalize-error';
-import { Card,CardContent,CardHeader,CardTitle } from '@/components/ui/card';
-import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from '@/components/ui/select';
+import { formatCurrencyDetailed } from '@/lib/currency';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { Skeleton, SkeletonCard } from '@/components/dashboard/skeleton';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { SkeletonCard } from '@/components/dashboard/skeleton';
+import {
+  buildReport,
+  type ReportContact,
+  type ReportData,
+  type ReportDeal,
+  type ReportPeriod,
+  type ReportStage,
+} from '@/lib/reports/analytics';
 
-type Period='7'|'30'|'month'|'90';
-type ContactRow={created_at:string}; type DealRow={status:string;value:number|null;stage_id:string;created_at:string}; type StageRow={id:string;name:string;position:number;color:string};
-type Report={totalContacts:number;newContacts:number;open:number;won:number;lost:number;pipelineValue:number;conversion:number;average:number;contactsByDay:{label:string;value:number}[];stages:{name:string;count:number;value:number;color:string}[]};
-function periodStart(period:Period){const now=new Date();if(period==='month')return new Date(now.getFullYear(),now.getMonth(),1);const date=new Date(now);date.setDate(now.getDate()-Number(period)+1);date.setHours(0,0,0,0);return date;}
-const percent=new Intl.NumberFormat('pt-BR',{style:'percent',maximumFractionDigits:1});
+const integer = new Intl.NumberFormat('pt-BR');
+const percent = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 });
 
-export default function ReportsPage(){const {accountId,profileLoading,defaultCurrency}=useAuth();const [period,setPeriod]=useState<Period>('30');const [report,setReport]=useState<Report|null>(null);const [loading,setLoading]=useState(true);const [error,setError]=useState<string|null>(null);
-const load=useCallback(async()=>{if(!accountId)return;setLoading(true);setError(null);try{const db=createClient(),start=periodStart(period).toISOString();const [total,contacts,deals,stages]=await Promise.all([db.from('contacts').select('id',{count:'exact',head:true}).eq('account_id',accountId),db.from('contacts').select('created_at').eq('account_id',accountId).gte('created_at',start).order('created_at'),db.from('deals').select('status,value,stage_id,created_at').eq('account_id',accountId).gte('created_at',start),db.from('pipeline_stages').select('id,name,position,color').order('position')]);if(total.error||contacts.error||deals.error||stages.error)throw total.error??contacts.error??deals.error??stages.error;const cs=(contacts.data??[]) as ContactRow[],ds=(deals.data??[]) as DealRow[],ss=(stages.data??[]) as StageRow[],won=ds.filter(d=>d.status==='won'),lost=ds.filter(d=>d.status==='lost'),closed=won.length+lost.length;const days=new Map<string,number>();for(const c of cs){const key=new Date(c.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});days.set(key,(days.get(key)??0)+1);}setReport({totalContacts:total.count??0,newContacts:cs.length,open:ds.filter(d=>d.status==='open').length,won:won.length,lost:lost.length,pipelineValue:ds.filter(d=>d.status==='open').reduce((s,d)=>s+Number(d.value??0),0),conversion:closed?won.length/closed:0,average:won.length?won.reduce((s,d)=>s+Number(d.value??0),0)/won.length:0,contactsByDay:[...days].map(([label,value])=>({label,value})),stages:ss.map(stage=>{const rows=ds.filter(d=>d.stage_id===stage.id);return{name:stage.name,count:rows.length,value:rows.reduce((s,d)=>s+Number(d.value??0),0),color:stage.color};})});}catch(e){const n=normalizeError(e);console.error('[reports]',{message:n.message,code:n.code});setError('Não foi possível carregar os relatórios.');}finally{setLoading(false);}},[accountId,period]);
-useEffect(()=>{if(profileLoading)return;if(!accountId){setLoading(false);setError('Não foi possível carregar os relatórios.');return;}void load();},[profileLoading,accountId,load]);
-const maxContacts=useMemo(()=>Math.max(1,...(report?.contactsByDay.map(i=>i.value)??[1])),[report]);const maxStage=useMemo(()=>Math.max(1,...(report?.stages.map(i=>i.count)??[1])),[report]);
-const cards=report?[['Total de contatos',report.totalContacts,Users],['Novos no período',report.newContacts,ContactRound],['Oportunidades abertas',report.open,BriefcaseBusiness],['Valor em negociação',formatCurrency(report.pipelineValue,defaultCurrency),CircleDollarSign],['Negócios ganhos',report.won,Trophy],['Negócios perdidos',report.lost,TrendingDown],['Taxa de conversão',percent.format(report.conversion),Target],['Ticket médio',formatCurrency(report.average,defaultCurrency),BarChart3]] as const:[];
-return <div className="space-y-6"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-sm font-medium text-primary">Desempenho comercial</p><h1 className="mt-1 text-3xl font-bold tracking-tight">Relatórios</h1><p className="mt-1 text-muted-foreground">Acompanhe o desempenho comercial da sua empresa.</p></div><div className="w-full sm:w-52"><label className="mb-1.5 block text-xs font-medium text-muted-foreground" htmlFor="report-period">Período</label><Select value={period} onValueChange={v=>setPeriod(v as Period)}><SelectTrigger id="report-period"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="7">Últimos 7 dias</SelectItem><SelectItem value="30">Últimos 30 dias</SelectItem><SelectItem value="month">Este mês</SelectItem><SelectItem value="90">Últimos 3 meses</SelectItem></SelectContent></Select></div></div>
-{error?<div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/10 p-5"><p>{error}</p><Button className="mt-3" variant="outline" onClick={()=>void load()}>Tentar novamente</Button></div>:null}{loading?<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Array.from({length:8},(_,i)=><SkeletonCard key={i}/>)}</div>:null}
-{!loading&&!error&&report?<><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map(([title,value,Icon])=><Card key={title} className="overflow-hidden"><CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-sm text-muted-foreground">{title}</CardTitle><span className="rounded-lg bg-primary/10 p-2 text-primary"><Icon className="size-4"/></span></CardHeader><CardContent><p className="text-2xl font-bold">{value}</p></CardContent></Card>)}</div><div className="grid gap-4 lg:grid-cols-2"><Card><CardHeader><CardTitle>Evolução de contatos</CardTitle></CardHeader><CardContent>{report.contactsByDay.length?<div className="flex h-64 items-end gap-2 overflow-x-auto pb-6" aria-label="Novos contatos por dia">{report.contactsByDay.map(item=><div key={item.label} className="flex min-w-10 flex-1 flex-col items-center gap-2" title={`${item.label}: ${item.value}`}><span className="text-xs font-semibold">{item.value}</span><div className="w-full rounded-t-md bg-primary/80" style={{height:`${Math.max(8,item.value/maxContacts*180)}px`}}/><span className="text-[10px] text-muted-foreground">{item.label}</span></div>)}</div>:<EmptyChart/>}</CardContent></Card><Card><CardHeader><CardTitle>Contatos por etapa</CardTitle></CardHeader><CardContent>{report.stages.some(s=>s.count)?<div className="space-y-4">{report.stages.map(stage=><div key={stage.name}><div className="mb-1 flex justify-between text-sm"><span>{stage.name}</span><span className="text-muted-foreground">{stage.count} · {formatCurrency(stage.value,defaultCurrency)}</span></div><div className="h-2 rounded-full bg-muted"><div className="h-full rounded-full" title={`${stage.name}: ${stage.count}`} style={{width:`${stage.count/maxStage*100}%`,backgroundColor:stage.color}}/></div></div>)}</div>:<EmptyChart/>}</CardContent></Card></div></>:null}</div>}
-function EmptyChart(){return <div className="grid h-56 place-items-center rounded-xl border border-dashed text-center text-sm text-muted-foreground">Ainda não há dados suficientes para este relatório.</div>}
+const tooltipStyle = {
+  background: 'var(--popover)',
+  border: '1px solid var(--border)',
+  borderRadius: '0.75rem',
+  color: 'var(--popover-foreground)',
+  boxShadow: 'var(--shadow-md)',
+};
 
+export default function ReportsPage() {
+  const { accountId, profileLoading, defaultCurrency } = useAuth();
+  const [period, setPeriod] = useState<ReportPeriod>('30');
+  const [report, setReport] = useState<ReportData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!accountId) return;
+    setLoading(true);
+    setError(false);
+    try {
+      const db = createClient();
+      const pipelineResult = await db
+        .from('pipelines')
+        .select('id')
+        .eq('account_id', accountId)
+        .order('created_at')
+        .limit(1)
+        .maybeSingle();
+      if (pipelineResult.error) throw pipelineResult.error;
+
+      const pipelineId = pipelineResult.data?.id;
+      const contactsQuery = db
+        .from('contacts')
+        .select('created_at,lead_source,is_active')
+        .eq('account_id', accountId);
+      const dealsQuery = pipelineId
+        ? db.from('deals').select('status,value,stage_id,created_at,updated_at').eq('account_id', accountId).eq('pipeline_id', pipelineId)
+        : Promise.resolve({ data: [], error: null });
+      const stagesQuery = pipelineId
+        ? db.from('pipeline_stages').select('id,name,position').eq('pipeline_id', pipelineId).order('position')
+        : Promise.resolve({ data: [], error: null });
+      const [contactsResult, dealsResult, stagesResult] = await Promise.all([contactsQuery, dealsQuery, stagesQuery]);
+      if (contactsResult.error || dealsResult.error || stagesResult.error) {
+        throw contactsResult.error ?? dealsResult.error ?? stagesResult.error;
+      }
+      setReport(buildReport(
+        (contactsResult.data ?? []) as ReportContact[],
+        (dealsResult.data ?? []) as ReportDeal[],
+        (stagesResult.data ?? []) as ReportStage[],
+        period,
+      ));
+    } catch (caught) {
+      const normalized = normalizeError(caught);
+      console.error('[reports] Falha ao carregar', { message: normalized.message, code: normalized.code });
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId, period]);
+
+  useEffect(() => {
+    if (profileLoading) return;
+    if (!accountId) {
+      setLoading(false);
+      setError(true);
+      return;
+    }
+    void load();
+  }, [profileLoading, accountId, load]);
+
+  const cards = report ? [
+    ['Total de contatos', integer.format(report.totalContacts), Users, 'Contatos ativos na sua base'],
+    ['Novos no período', integer.format(report.newContacts), ContactRound, 'Cadastros no intervalo selecionado'],
+    ['Oportunidades abertas', integer.format(report.open), BriefcaseBusiness, 'Negociações iniciadas no período'],
+    ['Valor em negociação', formatCurrencyDetailed(report.pipelineValue, defaultCurrency), CircleDollarSign, 'Soma das oportunidades abertas'],
+    ['Negócios ganhos', integer.format(report.won), Trophy, 'Finalizados como ganhos'],
+    ['Negócios perdidos', integer.format(report.lost), TrendingDown, 'Finalizados como perdidos'],
+    ['Taxa de conversão', percent.format(report.conversion), Target, 'Ganhos entre negócios finalizados'],
+    ['Ticket médio', formatCurrencyDetailed(report.average, defaultCurrency), BarChart3, 'Valor médio dos negócios ganhos'],
+  ] as const : [];
+
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-sm font-medium text-primary">Desempenho comercial</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">Relatórios</h1>
+          <p className="mt-1 text-muted-foreground">Acompanhe o desempenho comercial da sua empresa.</p>
+        </div>
+        <div className="w-full sm:w-56">
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground" htmlFor="report-period">Período</label>
+          <Select value={period} onValueChange={(value) => setPeriod(value as ReportPeriod)}>
+            <SelectTrigger id="report-period"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Últimos 7 dias</SelectItem>
+              <SelectItem value="30">Últimos 30 dias</SelectItem>
+              <SelectItem value="month">Este mês</SelectItem>
+              <SelectItem value="90">Últimos 3 meses</SelectItem>
+              <SelectItem value="all">Todo o período</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </header>
+
+      {error ? (
+        <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/10 p-5">
+          <p>Não foi possível carregar os relatórios.</p>
+          <Button className="mt-3" variant="outline" onClick={() => void load()}>Tentar novamente</Button>
+        </div>
+      ) : null}
+
+      {loading ? <ReportsSkeleton /> : null}
+
+      {!loading && !error && report ? (
+        <>
+          <section aria-label="Indicadores comerciais" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {cards.map(([title, value, Icon, subtitle]) => (
+              <MetricCard key={title} title={title} value={value} icon={Icon} subtitle={subtitle} />
+            ))}
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-5">
+            <ChartCard className="xl:col-span-3" title="Evolução de contatos" description="Novos contatos cadastrados no período selecionado.">
+              {report.contactsTimeline.some((point) => point.value > 0) ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={report.contactsTimeline} margin={{ top: 12, right: 12, left: -18, bottom: 0 }}>
+                    <defs><linearGradient id="contacts-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.3}/><stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0}/></linearGradient></defs>
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={24} />
+                    <YAxis allowDecimals={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(value) => [integer.format(Number(value)), 'Novos contatos']} />
+                    <Area type="monotone" dataKey="value" name="Novos contatos" stroke="var(--chart-1)" strokeWidth={2} fill="url(#contacts-fill)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : <EmptyChart />}
+            </ChartCard>
+
+            <ChartCard className="xl:col-span-2" title="Resultados das negociações" description="Negócios ganhos e perdidos no período.">
+              {report.results.some((item) => item.value > 0) ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={report.results} dataKey="value" nameKey="name" innerRadius={66} outerRadius={100} paddingAngle={3}>
+                      {report.results.map((item, index) => <Cell key={item.name} fill={`var(--chart-${index + 1})`} />)}
+                    </Pie>
+                    <Tooltip contentStyle={tooltipStyle} formatter={(value) => integer.format(Number(value))} />
+                    <Legend formatter={(value) => <span className="text-sm text-foreground">{value}</span>} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : <EmptyChart message="Ainda não há negociações finalizadas." />}
+            </ChartCard>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <ChartCard title="Contatos por etapa" description="Quantidade de oportunidades em cada etapa do funil principal.">
+              {report.stages.some((stage) => stage.count > 0) ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={report.stages} margin={{ top: 8, right: 8, left: -18, bottom: 24 }}>
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" interval={0} angle={-18} textAnchor="end" height={64} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis allowDecimals={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(value) => [integer.format(Number(value)), 'Oportunidades']} />
+                    <Bar dataKey="count" name="Oportunidades" fill="var(--chart-1)" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <EmptyChart />}
+            </ChartCard>
+
+            <ChartCard title="Valor por etapa" description="Valor total das oportunidades por etapa do funil.">
+              {report.stages.some((stage) => stage.value > 0) ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={report.stages} layout="vertical" margin={{ top: 8, right: 18, left: 18, bottom: 0 }}>
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" tickFormatter={(value) => integer.format(Number(value))} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" width={112} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(value) => [formatCurrencyDetailed(Number(value), defaultCurrency), 'Valor']} />
+                    <Bar dataKey="value" name="Valor" fill="var(--chart-2)" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <EmptyChart />}
+            </ChartCard>
+
+            <ChartCard title="Origem dos contatos" description="Como os novos contatos chegaram à sua empresa.">
+              {report.sources.length && report.sources.some((source) => source.value > 0) ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={report.sources.slice(0, 8)} layout="vertical" margin={{ top: 8, right: 18, left: 18, bottom: 0 }}>
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" allowDecimals={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" width={112} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(value) => [integer.format(Number(value)), 'Contatos']} />
+                    <Bar dataKey="value" name="Contatos" fill="var(--chart-3)" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <EmptyChart />}
+            </ChartCard>
+          </section>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function ChartCard({ title, description, children, className = '' }: { title: string; description: string; children: React.ReactNode; className?: string }) {
+  return (
+    <Card className={`min-w-0 rounded-2xl shadow-sm ${className}`}>
+      <CardHeader>
+        <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="min-w-0">{children}</CardContent>
+    </Card>
+  );
+}
+
+function EmptyChart({ message = 'Ainda não há dados suficientes para este relatório.' }: { message?: string }) {
+  return <div className="grid h-[300px] place-items-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">{message}</div>;
+}
+
+function ReportsSkeleton() {
+  return (
+    <div className="space-y-4" aria-label="Carregando relatórios">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 8 }, (_, index) => <SkeletonCard key={index} />)}</div>
+      <div className="grid gap-4 lg:grid-cols-2"><Skeleton className="h-[380px] rounded-2xl" /><Skeleton className="h-[380px] rounded-2xl" /></div>
+    </div>
+  );
+}

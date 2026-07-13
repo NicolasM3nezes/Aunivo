@@ -52,13 +52,15 @@ export default function PipelinesPage() {
   const supabase = createClient();
   const canEditSettings = useCan("edit-settings");
   const canCreateDeals = useCan("send-messages");
-  const { accountId } = useAuth();
+  const { accountId, profileLoading } = useAuth();
 
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>("");
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Dialog / sheet state
   const [newPipelineOpen, setNewPipelineOpen] = useState(false);
@@ -73,7 +75,7 @@ export default function PipelinesPage() {
   const [defaultStageId, setDefaultStageId] = useState<string>("");
 
   // Guard against double-seeding (React StrictMode double-effect in dev).
-  const seedAttempted = useRef(false);
+  const seedAttemptedForAccount = useRef<string | null>(null);
 
   const loadPipelines = useCallback(async () => {
     const { data, error } = await supabase
@@ -83,18 +85,19 @@ export default function PipelinesPage() {
       .order("created_at");
     if (error) {
       console.error("Failed to load pipelines:", error.message);
-      return [];
+      throw error;
     }
     return data ?? [];
   }, [supabase, accountId]);
 
   const loadStages = useCallback(
     async (pipelineId: string) => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("pipeline_stages")
         .select("*")
         .eq("pipeline_id", pipelineId)
         .order("position");
+      if (error) throw error;
       return data ?? [];
     },
     [supabase],
@@ -102,12 +105,13 @@ export default function PipelinesPage() {
 
   const loadDeals = useCallback(
     async (pipelineId: string) => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("deals")
         .select("*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)")
         .eq("pipeline_id", pipelineId)
         .eq("account_id", accountId ?? '')
         .order("created_at", { ascending: false });
+      if (error) throw error;
       return (data ?? []) as Deal[];
     },
     [supabase, accountId],
@@ -124,7 +128,7 @@ export default function PipelinesPage() {
 
     const { data: pipeline, error } = await supabase
       .from("pipelines")
-      .insert({ user_id: user.id, account_id: accountId, name: "Sales Pipeline" })
+      .insert({ user_id: user.id, account_id: accountId, name: "Funil principal" })
       .select()
       .single();
 
@@ -146,32 +150,46 @@ export default function PipelinesPage() {
 
   // Initial load + seed-if-empty
   useEffect(() => {
+    if (profileLoading) return;
+    if (!accountId) {
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       setLoading(true);
-      let list = await loadPipelines();
+      setLoadError(false);
+      try {
+        let list = await loadPipelines();
 
-      if (list.length === 0 && !seedAttempted.current) {
-        seedAttempted.current = true;
-        const seeded = await seedDefaultPipeline();
-        if (seeded) list = await loadPipelines();
-      }
+        if (list.length === 0 && seedAttemptedForAccount.current !== accountId) {
+          seedAttemptedForAccount.current = accountId;
+          const seeded = await seedDefaultPipeline();
+          if (seeded) list = await loadPipelines();
+        }
 
-      if (cancelled) return;
-      setPipelines(list);
-      if (list.length > 0) {
-        setSelectedPipelineId((prev) =>
-          prev && list.some((p) => p.id === prev) ? prev : list[0].id,
-        );
-      } else {
-        setSelectedPipelineId("");
+        if (cancelled) return;
+        setPipelines(list);
+        if (list.length > 0) {
+          setSelectedPipelineId((prev) =>
+            prev && list.some((p) => p.id === prev) ? prev : list[0].id,
+          );
+        } else {
+          setSelectedPipelineId("");
+        }
+      } catch (error) {
+        console.error("Failed to load pipeline:", error);
+        if (!cancelled) setLoadError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [loadPipelines, seedDefaultPipeline]);
+  }, [accountId, profileLoading, loadPipelines, seedDefaultPipeline, reloadKey]);
 
   // Load stages + deals whenever selected pipeline changes.
   // Clearing on no-selection is a legitimate sync with URL/prop
@@ -179,21 +197,24 @@ export default function PipelinesPage() {
   // callbacks (not synchronous in the effect body).
   useEffect(() => {
     if (!selectedPipelineId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStages([]);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDeals([]);
       return;
     }
     let cancelled = false;
     (async () => {
-      const [s, d] = await Promise.all([
-        loadStages(selectedPipelineId),
-        loadDeals(selectedPipelineId),
-      ]);
-      if (cancelled) return;
-      setStages(s);
-      setDeals(d);
+      try {
+        const [s, d] = await Promise.all([
+          loadStages(selectedPipelineId),
+          loadDeals(selectedPipelineId),
+        ]);
+        if (cancelled) return;
+        setStages(s);
+        setDeals(d);
+      } catch (error) {
+        console.error("Failed to load pipeline data:", error);
+        if (!cancelled) setLoadError(true);
+      }
     })();
     return () => {
       cancelled = true;
@@ -321,6 +342,24 @@ export default function PipelinesPage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="flex min-h-80 flex-col items-center justify-center rounded-xl border border-dashed border-border px-6 text-center">
+        <GitBranch className="size-12 text-muted-foreground" />
+        <h2 className="mt-4 text-lg font-semibold">NÃ£o foi possÃ­vel carregar o funil.</h2>
+        <Button
+          className="mt-4"
+          onClick={() => {
+            seedAttemptedForAccount.current = null;
+            setReloadKey((value) => value + 1);
+          }}
+        >
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -408,15 +447,15 @@ export default function PipelinesPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             {t("createToStartTracking")}
           </p>
-          <GatedButton
-            canAct={canEditSettings}
-            gateReason="create pipelines"
-            onClick={() => setNewPipelineOpen(true)}
-            className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90"
+          <Button
+            onClick={() => {
+              seedAttemptedForAccount.current = null;
+              setReloadKey((value) => value + 1);
+            }}
+            className="mt-4"
           >
-            <Plus className="mr-1 h-4 w-4" />
             {t("createPipeline")}
-          </GatedButton>
+          </Button>
         </div>
       ) : (
         <>

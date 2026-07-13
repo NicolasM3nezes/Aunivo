@@ -100,7 +100,6 @@ export function DealForm({
   const canSubmit =
     Boolean(title.trim()) && Boolean(contactId) && Boolean(stageId) && !isBusy;
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
 
@@ -134,9 +133,6 @@ export function DealForm({
     firstStageId,
     fallbackCurrency,
   ]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
 
@@ -180,9 +176,6 @@ export function DealForm({
       cancelled = true;
     };
   }, [open, supabase, accountId]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!FEATURES.inbox || !open || !contactId) {
       setLinkedConversation(null);
@@ -217,7 +210,6 @@ export function DealForm({
       cancelled = true;
     };
   }, [open, contactId, supabase]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleSheetOpenChange(nextOpen: boolean) {
     if (!nextOpen && isBusy) return;

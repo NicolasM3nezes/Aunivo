@@ -79,6 +79,24 @@ export function formatCurrency(
   }
 }
 
+/** Full pt-BR currency used by KPI and report surfaces where cents matter. */
+export function formatCurrencyDetailed(
+  value: number,
+  currency: string = DEFAULT_CURRENCY,
+): string {
+  const code = (currency || DEFAULT_CURRENCY).trim();
+  const amount = Number(value) || 0;
+  try {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency', currency: code, minimumFractionDigits: 2, maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${code} ${new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
+    }).format(amount)}`;
+  }
+}
+
 /**
  * Compact currency for tight spaces (donut center, legend rows):
  * "$1.2M" / "€34.5k" / "₹900". Uses the currency's symbol from
