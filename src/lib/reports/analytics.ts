@@ -14,7 +14,7 @@ export type ReportDeal = {
   updated_at: string | null;
 };
 
-export type ReportStage = { id: string; name: string; position: number };
+export type ReportStage = { id: string; name: string; position: number; is_won?: boolean; is_lost?: boolean };
 
 export type ReportData = {
   totalContacts: number;
@@ -106,7 +106,9 @@ export function buildReport(
   const start = getPeriodStart(period, now);
   const inPeriod = (value: string) => !start || new Date(value) >= start;
   const periodContacts = activeContacts.filter((contact) => inPeriod(contact.created_at));
-  const periodDeals = deals.filter((deal) => inPeriod(deal.status === 'won' || deal.status === 'lost' ? deal.updated_at ?? deal.created_at : deal.created_at));
+  const outcomeByStage = new Map(stages.map((stage) => [stage.id, stage.is_won ? 'won' : stage.is_lost ? 'lost' : null]));
+  const normalizedDeals = deals.map((deal) => ({ ...deal, status: outcomeByStage.get(deal.stage_id) ?? deal.status }));
+  const periodDeals = normalizedDeals.filter((deal) => inPeriod(deal.status === 'won' || deal.status === 'lost' ? deal.updated_at ?? deal.created_at : deal.created_at));
   const won = periodDeals.filter((deal) => deal.status === 'won');
   const lost = periodDeals.filter((deal) => deal.status === 'lost');
   const open = periodDeals.filter((deal) => deal.status === 'open');
@@ -137,4 +139,3 @@ export function buildReport(
     sources: [...sourceCounts].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
   };
 }
-

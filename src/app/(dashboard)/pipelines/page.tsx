@@ -31,6 +31,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { GatedButton } from "@/components/ui/gated-button";
 import { useTranslations } from "next-intl";
 import { FEATURES } from '@/config/features';
+import type { PlanKey } from '@/lib/billing/types';
+import { BASIC_PIPELINE_LIMIT_MESSAGE, pipelineEntitlements } from '@/lib/billing/pipeline-entitlements';
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -61,6 +63,7 @@ export default function PipelinesPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [plan, setPlan] = useState<PlanKey>('free');
 
   // Dialog / sheet state
   const [newPipelineOpen, setNewPipelineOpen] = useState(false);
@@ -76,6 +79,18 @@ export default function PipelinesPage() {
 
   // Guard against double-seeding (React StrictMode double-effect in dev).
   const seedAttemptedForAccount = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!accountId) return;
+    let cancelled = false;
+    void fetch('/api/billing/state')
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload) => {
+        if (!cancelled && payload?.entitlements?.effectivePlan) setPlan(payload.entitlements.effectivePlan as PlanKey);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [accountId]);
 
   const loadPipelines = useCallback(async () => {
     const { data, error } = await supabase
@@ -246,9 +261,11 @@ export default function PipelinesPage() {
       setDeals((prev) =>
         prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d)),
       );
+      const targetStage = stages.find((stage) => stage.id === newStageId);
+      const status = targetStage?.is_won ? 'won' : targetStage?.is_lost ? 'lost' : 'open';
       const { data: updated, error } = await supabase
         .from("deals")
-        .update({ stage_id: newStageId })
+        .update({ stage_id: newStageId, status })
         .eq("id", dealId)
         .eq("account_id", accountId)
         .select("id")
@@ -276,7 +293,50 @@ export default function PipelinesPage() {
     setDealFormOpen(true);
   }, []);
 
+  const pipelineAccess = pipelineEntitlements(plan, pipelines.length);
+  function handleRequestCreatePipeline() {
+    if (!pipelineAccess.canCreatePipeline) {
+      toast.error(BASIC_PIPELINE_LIMIT_MESSAGE, {
+        action: { label: 'Conhecer o Pro', onClick: () => { window.location.href = '/planos'; } },
+      });
+      return;
+    }
+    setNewPipelineOpen(true);
+  }
+
+  async function handleDuplicatePipeline() {
+    if (!selectedPipeline || !accountId || !pipelineAccess.canDuplicatePipeline) {
+      toast.error(BASIC_PIPELINE_LIMIT_MESSAGE);
+      return;
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    const { data: copy, error } = await supabase.from('pipelines').insert({
+      user_id: session.user.id,
+      account_id: accountId,
+      name: `${selectedPipeline.name} (cÃ³pia)`,
+    }).select().single();
+    if (error || !copy) {
+      toast.error(t('toastFailedCreatePipeline'));
+      return;
+    }
+    const stageRows = stages.map((stage, index) => ({ pipeline_id: copy.id, name: stage.name, color: stage.color, position: index, is_won: Boolean(stage.is_won), is_lost: Boolean(stage.is_lost) }));
+    const { error: stagesError } = await supabase.from('pipeline_stages').insert(stageRows);
+    if (stagesError) {
+      await supabase.from('pipelines').delete().eq('id', copy.id).eq('account_id', accountId);
+      toast.error(t('toastFailedCreatePipeline'));
+      return;
+    }
+    await refreshPipelines();
+    setSelectedPipelineId(copy.id);
+    toast.success('Funil duplicado.');
+  }
+
   async function handleCreatePipeline() {
+    if (!pipelineAccess.canCreatePipeline) {
+      toast.error(BASIC_PIPELINE_LIMIT_MESSAGE);
+      return;
+    }
     const name = newPipelineName.trim();
     if (!name) return;
     setCreating(true);
@@ -418,7 +478,7 @@ export default function PipelinesPage() {
             variant="outline"
             canAct={canEditSettings}
             gateReason="create pipelines"
-            onClick={() => setNewPipelineOpen(true)}
+            onClick={handleRequestCreatePipeline}
             className="border-border bg-card text-foreground hover:bg-muted"
           >
             <Plus className="mr-1 h-4 w-4" />
@@ -448,10 +508,7 @@ export default function PipelinesPage() {
             {t("createToStartTracking")}
           </p>
           <Button
-            onClick={() => {
-              seedAttemptedForAccount.current = null;
-              setReloadKey((value) => value + 1);
-            }}
+            onClick={handleRequestCreatePipeline}
             className="mt-4"
           >
             {t("createPipeline")}
@@ -521,8 +578,11 @@ export default function PipelinesPage() {
           onStagesChanged={refreshStages}
           onCreateNewPipeline={() => {
             setSettingsOpen(false);
-            setNewPipelineOpen(true);
+            handleRequestCreatePipeline();
           }}
+          canDeletePipeline={pipelineAccess.canDeletePipeline}
+          canDuplicatePipeline={pipelineAccess.canDuplicatePipeline}
+          onDuplicatePipeline={handleDuplicatePipeline}
         />
       )}
 

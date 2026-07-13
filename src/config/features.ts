@@ -2,7 +2,7 @@ export const FEATURES = {
   dashboard: true,
   contacts: true,
   pipeline: true,
-  multiplePipelines: false,
+  multiplePipelines: true,
   followUp: true,
   customerHistory: true,
   tags: true,

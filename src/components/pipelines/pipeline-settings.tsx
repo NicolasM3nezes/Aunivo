@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { useAuth } from '@/hooks/use-auth';
 
 const STAGE_COLORS = [
   "#3b82f6",
@@ -58,6 +59,9 @@ interface PipelineSettingsProps {
   onPipelinesChanged: () => void;
   onStagesChanged: () => void;
   onCreateNewPipeline: () => void;
+  canDeletePipeline: boolean;
+  canDuplicatePipeline: boolean;
+  onDuplicatePipeline: () => void;
 }
 
 export function PipelineSettings({
@@ -68,9 +72,13 @@ export function PipelineSettings({
   onPipelinesChanged,
   onStagesChanged,
   onCreateNewPipeline,
+  canDeletePipeline,
+  canDuplicatePipeline,
+  onDuplicatePipeline,
 }: PipelineSettingsProps) {
   const t = useTranslations("Pipelines.settings");
   const supabase = createClient();
+  const { accountId } = useAuth();
 
   const [name, setName] = useState(pipeline.name);
   const [localStages, setLocalStages] = useState<PipelineStage[]>(stages);
@@ -116,13 +124,28 @@ export function PipelineSettings({
       name: s.name,
       color: s.color,
       position: i,
+      is_won: Boolean(s.is_won),
+      is_lost: Boolean(s.is_lost),
     }));
+
+    // Clear outcome markers first so moving the unique won/lost marker from
+    // one stage to another cannot collide with the partial unique indexes.
+    const clearOutcomes = await supabase
+      .from('pipeline_stages')
+      .update({ is_won: false, is_lost: false })
+      .eq('pipeline_id', pipeline.id);
+    if (clearOutcomes.error) {
+      setSaving(false);
+      toast.error(t("toastFailedSave"));
+      return;
+    }
 
     const [renameRes, stagesRes] = await Promise.all([
       supabase
         .from("pipelines")
         .update({ name: name.trim() })
-        .eq("id", pipeline.id),
+        .eq("id", pipeline.id)
+        .eq('account_id', accountId ?? ''),
       supabase.from("pipeline_stages").upsert(stageRows, { onConflict: "id" }),
     ]);
 
@@ -149,6 +172,8 @@ export function PipelineSettings({
         name: trimmed,
         color: newStageColor,
         position: localStages.length,
+        is_won: false,
+        is_lost: false,
       })
       .select()
       .single();
@@ -183,12 +208,22 @@ export function PipelineSettings({
   }
 
   async function handleDeletePipeline() {
+    if (!canDeletePipeline) {
+      toast.error("VocÃª precisa manter pelo menos um funil ativo.");
+      return;
+    }
     setDeleting(true);
-    // ON DELETE CASCADE handles deals + stages.
+    const { count, error: countError } = await supabase.from('deals').select('id', { count: 'exact', head: true }).eq('pipeline_id', pipeline.id).eq('account_id', accountId ?? '');
+    if (countError || (count ?? 0) > 0) {
+      setDeleting(false);
+      toast.error('Mova ou exclua as oportunidades antes de excluir este funil.');
+      return;
+    }
     const { error } = await supabase
       .from("pipelines")
       .delete()
-      .eq("id", pipeline.id);
+      .eq("id", pipeline.id)
+      .eq('account_id', accountId ?? '');
     setDeleting(false);
     if (error) {
       toast.error(t("toastFailedDeletePipeline"));
@@ -275,6 +310,17 @@ export function PipelineSettings({
                             setLocalStages(updated);
                           }}
                           onRemove={() => handleRemoveStage(stage.id)}
+                          onOutcomeChange={(outcome) => {
+                            setLocalStages((current) => current.map((item) => ({
+                              ...item,
+                              is_won: outcome === 'won' ? item.id === stage.id : outcome === 'normal' && item.id === stage.id ? false : item.is_won,
+                              is_lost: outcome === 'lost' ? item.id === stage.id : outcome === 'normal' && item.id === stage.id ? false : item.is_lost,
+                            })).map((item) => item.id === stage.id ? { ...item, is_won: outcome === 'won', is_lost: outcome === 'lost' } : {
+                              ...item,
+                              is_won: outcome === 'won' ? false : item.is_won,
+                              is_lost: outcome === 'lost' ? false : item.is_lost,
+                            }));
+                          }}
                           colors={STAGE_COLORS}
                           t={t}
                         />
@@ -333,12 +379,23 @@ export function PipelineSettings({
                 <Plus className="mr-1 h-3 w-3" />
                 {t("createNewPipeline")}
               </Button>
+              <Button
+                variant="outline"
+                onClick={onDuplicatePipeline}
+                disabled={!canDuplicatePipeline}
+                title={!canDuplicatePipeline ? 'Seu plano Basic permite apenas 1 funil.' : undefined}
+                className="w-full border-border bg-transparent text-muted-foreground hover:bg-muted"
+              >
+                Duplicar funil
+              </Button>
             </div>
 
             <DialogFooter className="border-border bg-popover/50">
               <Button
                 variant="destructive"
                 onClick={() => setShowDeleteConfirm(true)}
+                disabled={!canDeletePipeline}
+                title={!canDeletePipeline ? "VocÃª precisa manter pelo menos um funil ativo." : undefined}
                 className="mr-auto bg-red-600 hover:bg-red-700"
               >
                 {t("deletePipeline")}
@@ -370,6 +427,7 @@ function SortableStageRow({
   onNameChange,
   onColorChange,
   onRemove,
+  onOutcomeChange,
   colors,
   t,
 }: {
@@ -377,6 +435,7 @@ function SortableStageRow({
   onNameChange: (v: string) => void;
   onColorChange: (v: string) => void;
   onRemove: () => void;
+  onOutcomeChange: (outcome: 'normal' | 'won' | 'lost') => void;
   colors: string[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
@@ -411,6 +470,16 @@ function SortableStageRow({
         onChange={(e) => onNameChange(e.target.value)}
         className="h-7 flex-1 border-transparent bg-transparent text-sm text-foreground focus:border-border"
       />
+      <select
+        aria-label="Resultado da etapa"
+        value={stage.is_won ? 'won' : stage.is_lost ? 'lost' : 'normal'}
+        onChange={(event) => onOutcomeChange(event.target.value as 'normal' | 'won' | 'lost')}
+        className="h-7 rounded-md border border-border bg-background px-1 text-xs"
+      >
+        <option value="normal">Normal</option>
+        <option value="won">Ganha</option>
+        <option value="lost">Perdida</option>
+      </select>
       <Button
         variant="ghost"
         size="icon-xs"

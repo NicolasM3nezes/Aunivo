@@ -5,7 +5,7 @@ CRM simples para pequenas empresas organizarem clientes, negociações e retorno
 ## Habilitado
 
 Cadastro e autenticação, dashboard comercial, contatos, etiquetas, notas/histórico,
-um funil principal, follow-up incorporado aos contatos/dashboard, relatórios básicos,
+funis comerciais conforme o plano, follow-up incorporado aos contatos/dashboard, relatórios básicos,
 configurações essenciais, plano e suporte.
 
 ## Oculto
@@ -20,9 +20,14 @@ redirecionam para `/dashboard?recurso=indisponivel`; APIs retornam 403 com
 
 ## Banco
 
-Aplique as migrations em ordem, inclusive `038_aunivo_v1_crm.sql`. Ela adiciona
-campos CRM aos contatos, timezone à conta, corrige billing ausente e garante um
-funil/etapas padrão de modo idempotente. Não há operação destrutiva.
+Aplique as migrations em ordem, inclusive `038_aunivo_v1_crm.sql`,
+`039_v1_signup_atomicity.sql` e `040_pipeline_plan_rules.sql`. Elas adicionam
+campos CRM aos contatos, timezone à conta, corrigem billing ausente, garantem um
+funil padrão e aplicam as regras comerciais dos funis. Não há operação destrutiva.
+
+O plano técnico `free`, exibido como Basic, mantém um funil totalmente editável.
+Pro e Business podem criar múltiplos funis. Dados legados acima do limite Basic
+não são apagados.
 
 ## Ambiente
 

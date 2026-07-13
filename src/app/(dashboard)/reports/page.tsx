@@ -80,7 +80,11 @@ export default function ReportsPage() {
       const pipelineId = pipelineResult.data?.id;
       const contactsQuery = db
         .from('contacts')
-        .select('created_at,lead_source,is_active')
+        .select('id,created_at')
+        .eq('account_id', accountId);
+      const contactCrmQuery = db
+        .from('contacts')
+        .select('id,lead_source,is_active')
         .eq('account_id', accountId);
       const dealsQuery = pipelineId
         ? db.from('deals').select('status,value,stage_id,created_at,updated_at').eq('account_id', accountId).eq('pipeline_id', pipelineId)
@@ -88,19 +92,38 @@ export default function ReportsPage() {
       const stagesQuery = pipelineId
         ? db.from('pipeline_stages').select('id,name,position').eq('pipeline_id', pipelineId).order('position')
         : Promise.resolve({ data: [], error: null });
-      const [contactsResult, dealsResult, stagesResult] = await Promise.all([contactsQuery, dealsQuery, stagesQuery]);
+      const stageOutcomeQuery = pipelineId
+        ? db.from('pipeline_stages').select('id,is_won,is_lost').eq('pipeline_id', pipelineId)
+        : Promise.resolve({ data: [], error: null });
+      const [contactsResult, contactCrmResult, dealsResult, stagesResult, stageOutcomeResult] = await Promise.all([contactsQuery, contactCrmQuery, dealsQuery, stagesQuery, stageOutcomeQuery]);
       if (contactsResult.error || dealsResult.error || stagesResult.error) {
         throw contactsResult.error ?? dealsResult.error ?? stagesResult.error;
       }
+      if (contactCrmResult.error) {
+        const optionalError = normalizeError(contactCrmResult.error);
+        console.warn('[reports] Campos CRM opcionais indisponÃ­veis; aplique a migration 038.', { code: optionalError.code, message: optionalError.message });
+      }
+      const crmById = new Map((contactCrmResult.data ?? []).map((row) => [row.id, row]));
+      const contacts = (contactsResult.data ?? []).map((row) => ({
+        created_at: row.created_at,
+        lead_source: crmById.get(row.id)?.lead_source ?? null,
+        is_active: crmById.get(row.id)?.is_active ?? true,
+      }));
+      if (stageOutcomeResult.error) {
+        const optionalError = normalizeError(stageOutcomeResult.error);
+        console.warn('[reports] Classificação de etapas indisponível; aplique a migration 040.', { code: optionalError.code, message: optionalError.message });
+      }
+      const outcomes = new Map((stageOutcomeResult.data ?? []).map((row) => [row.id, row]));
+      const reportStages = (stagesResult.data ?? []).map((stage) => ({ ...stage, ...outcomes.get(stage.id) }));
       setReport(buildReport(
-        (contactsResult.data ?? []) as ReportContact[],
+        contacts as ReportContact[],
         (dealsResult.data ?? []) as ReportDeal[],
-        (stagesResult.data ?? []) as ReportStage[],
+        reportStages as ReportStage[],
         period,
       ));
     } catch (caught) {
       const normalized = normalizeError(caught);
-      console.error('[reports] Falha ao carregar', { message: normalized.message, code: normalized.code });
+      console.error('[reports] Falha ao carregar', { message: normalized.message, code: normalized.code, details: normalized.details, hint: normalized.hint });
       setError(true);
     } finally {
       setLoading(false);
