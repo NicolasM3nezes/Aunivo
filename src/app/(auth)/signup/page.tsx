@@ -35,6 +35,7 @@ function SignupPageInner() {
   // points back at /join/<token> so the user lands on the redeem
   // step after verifying instead of being dropped on /dashboard.
   const inviteToken = searchParams.get("invite");
+  const selectedPlan = searchParams.get("plan") === "pro" ? "pro" : searchParams.get("plan") === "free" ? "free" : null;
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -67,7 +68,9 @@ function SignupPageInner() {
     // redirect (the app root).
     const emailRedirectTo = inviteToken
       ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
-      : undefined;
+      : selectedPlan
+        ? `${window.location.origin}/login?plan=${selectedPlan}`
+        : undefined;
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -112,7 +115,7 @@ function SignupPageInner() {
               href={
                 inviteToken
                   ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
+                  : selectedPlan ? `/login?plan=${selectedPlan}` : "/login"
               }
             >
               <Button
@@ -232,7 +235,7 @@ function SignupPageInner() {
               href={
                 inviteToken
                   ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
+                  : selectedPlan ? `/login?plan=${selectedPlan}` : "/login"
               }
               className="text-primary hover:text-primary/80"
             >

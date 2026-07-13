@@ -1782,7 +1782,7 @@
       }
     },
     "statuses": {
-      "free": "Basic",
+      "free": "Sem assinatura",
       "trialing": "Período de teste",
       "active": "Ativa",
       "past_due": "Pagamento atrasado",

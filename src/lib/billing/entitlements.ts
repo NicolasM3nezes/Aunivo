@@ -11,7 +11,7 @@ export class BillingAccessError extends Error {
 }
 
 export function effectivePlanFor(row: BillingRow | null, now = new Date()): { plan: PlanKey; access: AccountEntitlements['access'] } {
-  if (!row || row.plan_key === 'free') return { plan: 'free', access: 'full' }
+  if (!row) return { plan: 'free', access: 'restricted' }
   if (row.subscription_status === 'active' || row.subscription_status === 'trialing') return { plan: row.plan_key, access: 'full' }
   if (row.subscription_status === 'past_due' && row.grace_period_ends_at && new Date(row.grace_period_ends_at) > now) return { plan: row.plan_key, access: 'grace' }
   return { plan: 'free', access: 'restricted' }
@@ -27,7 +27,7 @@ export function isMissingBillingSchemaError(error: SupabaseErrorLike): boolean {
 
 function basicEntitlements(accountId: string): AccountEntitlements {
   const definition = BILLING_PLANS.free
-  return { accountId, configuredPlan: 'free', effectivePlan: 'free', status: 'free', access: 'full', gracePeriodEndsAt: null, limits: definition.limits, features: definition.features }
+  return { accountId, configuredPlan: 'free', effectivePlan: 'free', status: 'free', access: 'restricted', gracePeriodEndsAt: null, limits: definition.limits, features: definition.features }
 }
 
 export async function getAccountEntitlements(accountId: string, db: SupabaseClient = supabaseAdmin()): Promise<AccountEntitlements> {

@@ -7,16 +7,16 @@ export const PLAN_DISPLAY: Record<
 > = {
   free: {
     name: PLAN_DISPLAY_NAMES.free,
-    price: '14 dias grátis',
-    description: 'Teste o Aunivo V1 sem cobrança automática.',
-    cta: 'Testar grátis',
+    price: 'R$ 12,90/mês',
+    description: 'O essencial para organizar sua operação, com cobrança mensal imediata.',
+    cta: 'Assinar Basic',
   },
   pro: {
     name: PLAN_DISPLAY_NAMES.pro,
     price: 'R$ 39,90/mês',
     description:
-      'CRM completo para organizar clientes, vendas e retornos.',
-    cta: 'Começar agora',
+      'CRM completo com 14 dias grátis no primeiro teste e cartão cadastrado no início.',
+    cta: 'Começar teste grátis',
   },
   business: {
     name: PLAN_DISPLAY_NAMES.business,

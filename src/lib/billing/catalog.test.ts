@@ -3,6 +3,7 @@ import { BILLING_PLANS, isBillingInterval, isPlanKey, planForPriceId, priceIdFor
 
 afterEach(() => {
   delete process.env.STRIPE_PRO_MONTHLY_PRICE_ID
+  delete process.env.STRIPE_BASIC_MONTHLY_PRICE_ID
   delete process.env.STRIPE_PRO_YEARLY_PRICE_ID
   delete process.env.STRIPE_BUSINESS_MONTHLY_PRICE_ID
   delete process.env.STRIPE_BUSINESS_YEARLY_PRICE_ID
@@ -26,12 +27,14 @@ describe('billing catalog', () => {
     expect(BILLING_PLANS.free.name).toBe('Basic')
   })
   it('maps only allowlisted price ids', () => {
+    process.env.STRIPE_BASIC_MONTHLY_PRICE_ID = 'price_basic_month'
     process.env.STRIPE_PRO_MONTHLY_PRICE_ID = 'price_pro_month'
+    expect(priceIdFor('free', 'monthly')).toBe('price_basic_month')
     expect(priceIdFor('pro', 'monthly')).toBe('price_pro_month')
     expect(planForPriceId('price_pro_month')).toEqual({ planKey: 'pro', interval: 'monthly' })
     expect(planForPriceId('price_attacker')).toBeNull()
   })
   it('rejects missing configured price ids', () => {
-    expect(() => priceIdFor('business', 'yearly')).toThrow('STRIPE_BUSINESS_YEARLY_PRICE_ID is required')
+    expect(() => priceIdFor('pro', 'yearly')).toThrow('Only monthly billing is available')
   })
 })

@@ -8,9 +8,15 @@ export async function GET() {
   try {
     const ctx = await getCurrentAccount()
     const entitlements = await getAccountEntitlements(ctx.accountId)
-    if (ctx.role !== 'owner') return NextResponse.json({ entitlements, billing: null, canManage: false })
     const { data, error } = await supabaseAdmin().from('account_billing').select('*').eq('account_id', ctx.accountId).maybeSingle()
     if (error) throw new Error(error.message)
-    return NextResponse.json({ entitlements, billing: data, canManage: true })
+    const billing = ctx.role === 'owner' || !data ? data : {
+      ...data,
+      provider_customer_id: null,
+      provider_subscription_id: null,
+      provider_price_id: null,
+      last_provider_event_created_at: null,
+    }
+    return NextResponse.json({ entitlements, billing, canManage: ctx.role === 'owner', trialEligible: ctx.role === 'owner' && !data?.trial_used_at })
   } catch (error) { return billingErrorResponse(error) }
 }

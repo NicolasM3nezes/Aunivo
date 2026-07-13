@@ -38,10 +38,13 @@ export interface BillingRow {
   current_period_end: string | null
   trial_start: string | null
   trial_end: string | null
+  trial_used_at: string | null
   cancel_at_period_end: boolean
   canceled_at: string | null
   grace_period_ends_at: string | null
   last_invoice_status: string | null
+  last_invoice_paid_at: string | null
+  last_payment_failed_at: string | null
   last_provider_event_created_at: string | null
   last_synced_at: string | null
 }

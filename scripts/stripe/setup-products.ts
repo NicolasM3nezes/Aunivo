@@ -8,8 +8,8 @@ console.log(`Aunivo Stripe setup: ${live ? 'LIVE MODE' : 'TEST MODE'}`)
 if (live && process.env.ALLOW_STRIPE_LIVE_SETUP !== 'true') throw new Error('Live mode blocked. Set ALLOW_STRIPE_LIVE_SETUP=true explicitly to continue.')
 
 const plans = [
-  { key: 'pro', name: 'Aunivo Pro', monthly: 22900, yearly: 229000 },
-  { key: 'business', name: 'Aunivo Business', monthly: 49900, yearly: 499000 },
+  { key: 'free', envKey: 'BASIC', name: 'Aunivo Basic', monthly: 1290 },
+  { key: 'pro', envKey: 'PRO', name: 'Aunivo Pro', monthly: 3990 },
 ] as const
 
 async function productFor(plan: typeof plans[number]) {
@@ -17,20 +17,18 @@ async function productFor(plan: typeof plans[number]) {
   return list.data[0] ?? stripe.products.create({ name: plan.name, metadata: { app: 'aunivo', plan_key: plan.key } })
 }
 
-async function priceFor(product: Stripe.Product, plan: typeof plans[number], interval: 'monthly' | 'yearly') {
-  const lookup = `aunivo_${plan.key}_${interval}_brl`
+async function priceFor(product: Stripe.Product, plan: typeof plans[number]) {
+  const lookup = `aunivo_${plan.key}_monthly_brl`
   const existing = await stripe.prices.list({ lookup_keys: [lookup], active: true, limit: 1 })
   if (existing.data[0]) return existing.data[0]
-  return stripe.prices.create({ product: product.id, currency: 'brl', unit_amount: plan[interval], recurring: { interval: interval === 'monthly' ? 'month' : 'year' }, lookup_key: lookup, metadata: { app: 'aunivo', plan_key: plan.key, interval } })
+  return stripe.prices.create({ product: product.id, currency: 'brl', unit_amount: plan.monthly, recurring: { interval: 'month' }, lookup_key: lookup, metadata: { app: 'aunivo', plan_key: plan.key, interval: 'monthly' } })
 }
 
 const output: Record<string, string> = {}
 for (const plan of plans) {
   const product = await productFor(plan)
-  for (const interval of ['monthly', 'yearly'] as const) {
-    const price = await priceFor(product, plan, interval)
-    output[`STRIPE_${plan.key.toUpperCase()}_${interval === 'monthly' ? 'MONTHLY' : 'YEARLY'}_PRICE_ID`] = price.id
-  }
+  const price = await priceFor(product, plan)
+  output[`STRIPE_${plan.envKey}_MONTHLY_PRICE_ID`] = price.id
 }
 console.log('\nAdd these values to .env.local:')
 for (const [name, value] of Object.entries(output)) console.log(`${name}=${value}`)

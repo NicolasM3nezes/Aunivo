@@ -11,19 +11,19 @@ const freeFeatures: Record<BillingFeature, boolean> = {
 export const BILLING_PLANS: Record<PlanKey, PlanDefinition> = {
   free: {
     key: 'free', name: PLAN_DISPLAY_NAMES.free, description: 'Para começar a organizar suas vendas.',
-    prices: { monthly: 0, yearly: 0 },
+    prices: { monthly: 1290, yearly: 0 },
     limits: PLAN_LIMITS.free,
     features: freeFeatures,
   },
   pro: {
     key: 'pro', name: PLAN_DISPLAY_NAMES.pro, description: 'Automação e IA para equipes em crescimento.', recommended: true,
-    prices: { monthly: 22900, yearly: 229000 },
+    prices: { monthly: 3990, yearly: 0 },
     limits: PLAN_LIMITS.pro,
     features: { ...freeFeatures, shared_inbox: true, custom_fields: true, broadcasts: true, flows: true, ai_auto_reply: true, knowledge_base: true, reports: true },
   },
   business: {
     key: 'business', name: PLAN_DISPLAY_NAMES.business, description: 'Escala, integrações e limites personalizados.',
-    prices: { monthly: 49900, yearly: 499000 },
+    prices: { monthly: 0, yearly: 0 },
     limits: PLAN_LIMITS.business,
     features: { ...freeFeatures, shared_inbox: true, custom_fields: true, broadcasts: true, flows: true, ai_auto_reply: true, knowledge_base: true, reports: true, public_api: true, external_webhooks: true, mcp: true, advanced_permissions: true },
   },
@@ -37,17 +37,16 @@ export function getPlan(plan: PlanKey) { return BILLING_PLANS[plan] }
 export function planHasFeature(plan: PlanKey, feature: BillingFeature) { return BILLING_PLANS[plan].features[feature] }
 export function planLimit(plan: PlanKey, limit: BillingLimit) { return BILLING_PLANS[plan].limits[limit] }
 
-export function priceIdFor(plan: Exclude<PlanKey, 'free'>, interval: BillingInterval): string {
-  const envKey = `STRIPE_${plan.toUpperCase()}_${interval === 'monthly' ? 'MONTHLY' : 'YEARLY'}_PRICE_ID`
+export function priceIdFor(plan: Exclude<PlanKey, 'business'>, interval: BillingInterval = 'monthly'): string {
+  if (interval !== 'monthly') throw new Error('Only monthly billing is available')
+  const envKey = plan === 'free' ? 'STRIPE_BASIC_MONTHLY_PRICE_ID' : 'STRIPE_PRO_MONTHLY_PRICE_ID'
   const value = process.env[envKey]?.trim()
   if (!value) throw new Error(`${envKey} is required`)
   return value
 }
 
-export function planForPriceId(priceId: string): { planKey: Exclude<PlanKey, 'free'>; interval: BillingInterval } | null {
-  for (const planKey of ['pro', 'business'] as const) for (const interval of BILLING_INTERVALS) {
-    const key = `STRIPE_${planKey.toUpperCase()}_${interval === 'monthly' ? 'MONTHLY' : 'YEARLY'}_PRICE_ID`
-    if (process.env[key] && process.env[key] === priceId) return { planKey, interval }
-  }
+export function planForPriceId(priceId: string): { planKey: Exclude<PlanKey, 'business'>; interval: 'monthly' } | null {
+  if (process.env.STRIPE_BASIC_MONTHLY_PRICE_ID?.trim() === priceId) return { planKey: 'free', interval: 'monthly' }
+  if (process.env.STRIPE_PRO_MONTHLY_PRICE_ID?.trim() === priceId) return { planKey: 'pro', interval: 'monthly' }
   return null
 }

@@ -43,13 +43,15 @@ const plans = [
     price: PLAN_DISPLAY.free.price,
     priceSuffix: '',
     cta: PLAN_DISPLAY.free.cta,
-    href: '/cadastro?plan=free',
+    href: '/checkout?plan=free',
     featured: false,
     icon: Sparkles,
     features: [
       '1 usuário',
       'Até 200 contatos',
       '1 funil de vendas',
+      '1 automação ativa',
+      '25 respostas de IA por mês',
       'Próximos retornos',
       'Histórico de clientes',
       'Relatórios básicos',
@@ -63,17 +65,18 @@ const plans = [
     price: PLAN_DISPLAY.pro.price,
     priceSuffix: '',
     cta: PLAN_DISPLAY.pro.cta,
-    href: '/planos',
+    href: '/checkout?plan=pro',
     featured: true,
     icon: Crown,
     features: [
-      '1 usuário',
+      'Até 3 usuários',
       'Até 5.000 contatos',
-      '1 funil de vendas',
-      'Follow-up',
-      'Histórico de clientes',
-      'Etiquetas',
-      'Dashboard e relatórios básicos',
+      'Até 5 funis de vendas',
+      '25 automações ativas',
+      'Campanhas para até 5.000 destinatários/mês',
+      '10 fluxos e 3 agentes de IA',
+      '2.000 respostas de IA por mês',
+      'Base de conhecimento e relatórios avançados',
     ],
   },
   {
@@ -101,9 +104,13 @@ const plans = [
 ] as const;
 
 const comparison = [
-  ['Usuários', '1', '1', 'Sob consulta'],
+  ['Usuários', '1', 'Até 3', 'Sob consulta'],
   ['Contatos', 'Até 200', 'Até 5.000', 'Sob medida'],
-  ['Funis', '1', '1', 'Sob consulta'],
+  ['Funis', '1', 'Até 5', 'Sob consulta'],
+  ['Automações ativas', '1', 'Até 25', 'Sob consulta'],
+  ['Campanhas', 'Não incluídas', 'Até 5.000 destinatários/mês', 'Sob consulta'],
+  ['Fluxos', 'Não incluídos', 'Até 10', 'Sob consulta'],
+  ['Agentes de IA', 'Não incluídos', 'Até 3', 'Sob consulta'],
   ['Follow-up', 'Incluído', 'Incluído', 'Sob medida'],
   ['Histórico de clientes', 'Incluído', 'Incluído', 'Incluído'],
   ['Etiquetas', 'Incluídas', 'Incluídas', 'Incluídas'],
@@ -464,13 +471,12 @@ export default function PlansPage() {
                   </Button>
                 ) : (
                   <Button
-                    render={<Link href="/contato" />}
                     size="lg"
                     variant="secondary"
                     className="h-12 rounded-xl px-6"
+                    disabled
                   >
-                    Falar com um especialista
-                    <ArrowRight className="size-4" />
+                    Canal comercial em configuração
                   </Button>
                 )}
 
@@ -524,7 +530,7 @@ export default function PlansPage() {
             </p>
 
             <Button
-              render={<Link href="/cadastro?plan=free" />}
+              render={<Link href="/checkout?plan=free" />}
               size="lg"
               className="shadow-primary/20 mt-8 h-12 rounded-xl px-6 shadow-lg"
             >

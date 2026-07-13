@@ -25,6 +25,7 @@ interface State {
   entitlements: AccountEntitlements;
   billing: BillingRow | null;
   canManage: boolean;
+  trialEligible: boolean;
 }
 
 export function BillingSettings() {
@@ -92,6 +93,7 @@ export function BillingSettings() {
       </Card>
     );
   const current = state.entitlements.effectivePlan;
+  const hasAccess = state.entitlements.access !== 'restricted';
   return (
     <div className="space-y-6">
       <Card>
@@ -101,7 +103,7 @@ export function BillingSettings() {
               <CardTitle>{t('title')}</CardTitle>
               <CardDescription>{t('description')}</CardDescription>
             </div>
-            <Badge>{PLAN_DISPLAY[current].name}</Badge>
+            <Badge>{hasAccess ? PLAN_DISPLAY[current].name : 'Sem assinatura'}</Badge>
           </div>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3 text-sm">
@@ -115,6 +117,18 @@ export function BillingSettings() {
                 new Date(state.billing.current_period_end)
               )}
             </span>
+          )}
+          {state.billing?.trial_end && state.entitlements.status === 'trialing' && (
+            <span>Fim do teste: {new Intl.DateTimeFormat('pt-BR').format(new Date(state.billing.trial_end))}</span>
+          )}
+          {state.billing?.cancel_at_period_end && (
+            <span className="text-amber-600 dark:text-amber-300">Cancelamento agendado para o fim do período.</span>
+          )}
+          {state.entitlements.access === 'grace' && state.entitlements.gracePeriodEndsAt && (
+            <span className="text-amber-600 dark:text-amber-300">Carência até {new Intl.DateTimeFormat('pt-BR').format(new Date(state.entitlements.gracePeriodEndsAt))}.</span>
+          )}
+          {state.billing?.last_invoice_paid_at && (
+            <span>Último pagamento: {new Intl.DateTimeFormat('pt-BR').format(new Date(state.billing.last_invoice_paid_at))}</span>
           )}
           <div className="basis-full" />
           {state.canManage && state.billing?.provider_customer_id && (
@@ -193,8 +207,7 @@ export function BillingSettings() {
                     className="w-full"
                     disabled={
                       !state.canManage ||
-                      key === current ||
-                      key === 'free' ||
+                      (key === current && hasAccess) ||
                       !!busy
                     }
                     onClick={() =>
@@ -204,10 +217,10 @@ export function BillingSettings() {
                       })
                     }
                   >
-                    {key === current
+                    {key === current && hasAccess
                       ? t('current')
-                      : key === 'free'
-                        ? display.name
+                      : key === 'pro' && !state.trialEligible
+                        ? 'Assinar Pro'
                         : display.cta}
                   </Button>
                 )}

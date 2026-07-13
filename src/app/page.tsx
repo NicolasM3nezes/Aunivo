@@ -152,13 +152,15 @@ const plans = [
     description: PLAN_DISPLAY.free.description,
     features: [
       '1 usuário',
-      'Organização de contatos',
+      'Até 200 contatos',
       'Funil básico',
+      '1 automação ativa',
+      '25 respostas de IA por mês',
       'Próximos retornos',
       'Relatórios básicos',
     ],
     cta: PLAN_DISPLAY.free.cta,
-    href: '/cadastro?plan=free',
+    href: '/checkout?plan=free',
     featured: false,
   },
   {
@@ -169,15 +171,16 @@ const plans = [
     suffix: '',
     description: PLAN_DISPLAY.pro.description,
     features: [
-      '1 usuário',
-      'Gestão de contatos',
-      'Funil de vendas',
-      'Follow-up e histórico',
-      'Etiquetas',
-      'Relatórios básicos',
+      'Até 3 usuários',
+      'Até 5.000 contatos',
+      'Até 5 funis de vendas',
+      '25 automações ativas',
+      'Campanhas e até 10 fluxos',
+      '3 agentes e 2.000 respostas de IA/mês',
+      'Base de conhecimento e relatórios avançados',
     ],
     cta: PLAN_DISPLAY.pro.cta,
-    href: '/planos',
+    href: '/checkout?plan=pro',
     featured: true,
   },
   {
@@ -265,7 +268,7 @@ export default function HomePage() {
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Button
-                  render={<Link href="/cadastro?plan=free" />}
+                  render={<Link href="/checkout?plan=free" />}
                   size="lg"
                   className="shadow-primary/20 h-12 rounded-xl px-6 shadow-lg"
                 >
@@ -637,7 +640,7 @@ export default function HomePage() {
             </p>
 
             <Button
-              render={<Link href="/cadastro?plan=free" />}
+              render={<Link href="/checkout?plan=free" />}
               size="lg"
               variant="secondary"
               className="mt-8 h-12 rounded-xl px-6"

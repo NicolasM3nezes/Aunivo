@@ -9,6 +9,7 @@ import { NextRequest } from "next/server";
 //                      of the test is that these must survive onto whatever
 //                      response the middleware returns — including redirects.
 let mockUser: { id: string } | null = null;
+let mockSubscription: { subscription_status: string; grace_period_ends_at: string | null } | null = null;
 let refreshedCookies: Array<{
   name: string;
   value: string;
@@ -32,6 +33,14 @@ vi.mock("@supabase/ssr", () => ({
         return { data: { user: mockUser } };
       },
     },
+    from: (table: string) => {
+      const builder = {
+        select: () => builder,
+        eq: () => builder,
+        maybeSingle: async () => ({ data: table === 'profiles' ? { account_id: 'account-1' } : mockSubscription }),
+      };
+      return builder;
+    },
   }),
 }));
 
@@ -42,6 +51,7 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
   mockUser = null;
+  mockSubscription = { subscription_status: 'active', grace_period_ends_at: null };
   refreshedCookies = [];
 });
 
@@ -109,5 +119,23 @@ describe("middleware — refreshed auth cookies survive redirects", () => {
     // No redirect — the normal NextResponse.next() already carries cookies.
     expect(res.headers.get("location")).toBeNull();
     expect(res.cookies.get(ROTATED.name)?.value).toBe(ROTATED.value);
+  });
+
+  it("redirects an account without a valid subscription to the plans page", async () => {
+    mockUser = { id: "user-1" };
+    mockSubscription = { subscription_status: 'free', grace_period_ends_at: null };
+
+    const res = await proxy(new NextRequest("https://app.test/dashboard"));
+
+    expect(res.headers.get("location")).toContain("/planos?assinatura=necessaria");
+  });
+
+  it("keeps billing settings reachable without a valid subscription", async () => {
+    mockUser = { id: "user-1" };
+    mockSubscription = null;
+
+    const res = await proxy(new NextRequest("https://app.test/settings?tab=billing"));
+
+    expect(res.headers.get("location")).toBeNull();
   });
 });

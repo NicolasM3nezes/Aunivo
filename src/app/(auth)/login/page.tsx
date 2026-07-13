@@ -37,6 +37,7 @@ function LoginPageInner() {
   // account. After a successful sign-in we send them to the join
   // page to accept rather than to /dashboard.
   const inviteToken = searchParams.get("invite");
+  const selectedPlan = searchParams.get("plan") === "pro" ? "pro" : searchParams.get("plan") === "free" ? "free" : null;
   const t = useTranslations("LoginPage");
 
   const [email, setEmail] = useState("");
@@ -64,6 +65,8 @@ function LoginPageInner() {
 
     if (inviteToken) {
       router.push(`/join/${encodeURIComponent(inviteToken)}`);
+    } else if (selectedPlan) {
+      router.push(`/checkout?plan=${selectedPlan}`);
     } else {
       router.push("/dashboard");
     }
@@ -151,7 +154,7 @@ function LoginPageInner() {
               href={
                 inviteToken
                   ? `/cadastro?invite=${encodeURIComponent(inviteToken)}`
-                  : "/cadastro"
+                  : selectedPlan ? `/cadastro?plan=${selectedPlan}` : "/cadastro"
               }
               className="text-primary hover:text-primary/80"
             >

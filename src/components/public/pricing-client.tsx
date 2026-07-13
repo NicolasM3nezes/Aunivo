@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Check, Loader2, Minus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -26,6 +25,7 @@ interface BillingState {
   entitlements: AccountEntitlements;
   billing: BillingRow | null;
   canManage: boolean;
+  trialEligible: boolean;
 }
 
 export function PricingClient() {
@@ -51,7 +51,7 @@ export function PricingClient() {
     };
   }, []);
 
-  async function checkout(planKey: Exclude<PlanKey, 'free'>) {
+  async function checkout(planKey: Exclude<PlanKey, 'business'>) {
     if (!authenticated) {
       window.location.assign(`/cadastro?plan=${planKey}&interval=monthly`);
       return;
@@ -102,7 +102,7 @@ export function PricingClient() {
     }
   }
 
-  const current = billing?.entitlements.effectivePlan;
+  const current = billing?.entitlements.access === 'restricted' ? undefined : billing?.entitlements.effectivePlan;
   return (
     <>
       {billing &&
@@ -174,14 +174,6 @@ export function PricingClient() {
                     <Button className="w-full" disabled>
                       Plano atual
                     </Button>
-                  ) : key === 'free' ? (
-                    <Button
-                      render={<Link href="/cadastro" />}
-                      className="w-full"
-                      variant="outline"
-                    >
-                      {display.cta}
-                    </Button>
                   ) : key === 'business' ? (
                     salesUrl ? (
                       <Button
@@ -220,7 +212,7 @@ export function PricingClient() {
                       {busy === key ? (
                         <Loader2 className="animate-spin" />
                       ) : (
-                        display.cta
+                        key === 'pro' && billing && !billing.trialEligible ? 'Assinar Pro' : display.cta
                       )}
                     </Button>
                   )}

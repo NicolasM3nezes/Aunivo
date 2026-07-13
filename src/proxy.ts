@@ -83,18 +83,58 @@ export async function proxy(request: NextRequest) {
       url.pathname = `/join/${encodeURIComponent(inviteToken)}`
       url.search = ''
     } else {
-      url.pathname = '/dashboard'
-      url.search = ''
+      const selectedPlan = request.nextUrl.searchParams.get('plan')
+      if (selectedPlan === 'free' || selectedPlan === 'pro') {
+        url.pathname = '/checkout'
+        url.search = `plan=${selectedPlan}`
+      } else {
+        url.pathname = '/dashboard'
+        url.search = ''
+      }
     }
     return withRefreshedCookies(NextResponse.redirect(url))
   }
 
   // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/contacts', '/pipelines', '/reports', '/settings', '/configuracoes', '/assinatura']
+  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/tasks', '/notifications', '/reports', '/broadcasts', '/automations', '/flows', '/agents', '/settings', '/configuracoes', '/assinatura']
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return withRefreshedCookies(NextResponse.redirect(url))
+  }
+
+  // A Supabase account is created before checkout, but application access only
+  // starts after Stripe confirms a paid Basic/Business subscription or the Pro
+  // trial. Billing, checkout and portal routes remain reachable for recovery.
+  const isProtectedPage = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
+  const isBillingRecoveryPage =
+    request.nextUrl.pathname === '/assinatura' ||
+    request.nextUrl.pathname.startsWith('/configuracoes/assinatura') ||
+    (request.nextUrl.pathname === '/settings' && request.nextUrl.searchParams.get('tab') === 'billing')
+  const gatedApiPrefixes = ['/api/account', '/api/ai', '/api/automations', '/api/flows', '/api/quick-replies', '/api/tasks']
+  const isGatedApi = gatedApiPrefixes.some(path => request.nextUrl.pathname.startsWith(path)) ||
+    (request.nextUrl.pathname.startsWith('/api/whatsapp/') && !request.nextUrl.pathname.includes('/webhook'))
+
+  if (user && ((isProtectedPage && !isBillingRecoveryPage) || isGatedApi)) {
+    const { data: profile } = await supabase.from('profiles').select('account_id').eq('user_id', user.id).maybeSingle()
+    const { data: billing } = profile?.account_id
+      ? await supabase.from('account_billing').select('subscription_status,grace_period_ends_at').eq('account_id', profile.account_id).maybeSingle()
+      : { data: null }
+    const valid = billing?.subscription_status === 'active' ||
+      billing?.subscription_status === 'trialing' ||
+      (billing?.subscription_status === 'past_due' && !!billing.grace_period_ends_at && new Date(billing.grace_period_ends_at).getTime() > Date.now())
+
+    if (!valid) {
+      if (isGatedApi) {
+        return withRefreshedCookies(NextResponse.json({ error: 'SUBSCRIPTION_REQUIRED', message: 'Escolha um plano para continuar usando o Aunivo.' }, { status: 402 }))
+      }
+      const url = request.nextUrl.clone()
+      url.pathname = '/planos'
+      url.search = ''
+      url.searchParams.set('assinatura', 'necessaria')
+      url.searchParams.set('next', request.nextUrl.pathname)
+      return withRefreshedCookies(NextResponse.redirect(url))
+    }
   }
 
   // API routes that need auth (not webhooks)
