@@ -117,6 +117,7 @@ export function ContactForm({
     const { data } = await supabase
       .from('tags')
       .select('*')
+      .eq('account_id', accountId ?? '')
       .order('name');
     if (data) setTags(data);
     setLoadingTags(false);
@@ -166,7 +167,7 @@ export function ContactForm({
       let contactId = contact?.id;
 
       if (isEdit && contactId) {
-        const { error } = await supabase
+        const { data: updated, error } = await supabase
           .from('contacts')
           .update({
             name: name.trim(),
@@ -179,8 +180,11 @@ export function ContactForm({
             updated_at: new Date().toISOString(),
           })
           .eq('id', contactId)
-          .eq('account_id', accountId);
+          .eq('account_id', accountId)
+          .select('id')
+          .maybeSingle();
         if (error) throw error;
+        if (!updated) throw new Error('Contato não encontrado nesta organização.');
       } else {
         const { data, error } = await supabase
           .from('contacts')
@@ -203,10 +207,11 @@ export function ContactForm({
 
       // Sync tags
       if (contactId) {
-        await supabase
+        const { error: clearTagsError } = await supabase
           .from('contact_tags')
           .delete()
           .eq('contact_id', contactId);
+        if (clearTagsError) throw clearTagsError;
 
         if (selectedTagIds.length > 0) {
           const tagRows = selectedTagIds.map((tag_id) => ({
@@ -241,7 +246,7 @@ export function ContactForm({
         return;
       }
       const normalized = normalizeError(err);
-      console.error('[contacts:save]', { message: normalized.message, code: normalized.code });
+      console.error('[contacts:save]', { message: normalized.message, code: normalized.code, details: normalized.details, hint: normalized.hint });
       toast.error('Não foi possível salvar o contato. Tente novamente.');
     } finally {
       setSaving(false);

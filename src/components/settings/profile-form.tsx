@@ -140,15 +140,17 @@ export function ProfileForm() {
       }
 
       // Persist name + avatar to profiles.
-      const { error: updateError } = await supabase
-        .from('profiles')
+      const { data: updatedProfile, error: updateError } = await supabase
+          .from('profiles')
         .update({
           full_name: trimmedName,
           avatar_url: nextAvatarUrl,
         })
-        .eq('user_id', user.id);
-      if (updateError) {
-        throw new Error(t('saveFailed', { message: updateError.message }));
+          .eq('user_id', user.id)
+          .select('user_id')
+          .maybeSingle();
+        if (updateError || !updatedProfile) {
+          throw new Error(t('saveFailed', { message: updateError?.message ?? 'Perfil não encontrado.' }));
       }
 
       // Email change goes through Supabase Auth, which emails a

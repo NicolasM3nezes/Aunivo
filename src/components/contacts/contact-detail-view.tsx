@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
-import { formatBrazilianPhone } from '@/lib/phone';
+import { formatBrazilianPhone, normalizePhone } from '@/lib/phone';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag, ContactNote, CustomField, ContactCustomValue, Deal, MessageTemplate } from '@/types';
 import {
@@ -204,18 +204,21 @@ export function ContactDetailView({
     }
 
     setSavingDetails(true);
-    const { error } = await supabase
-      .from('contacts')
-      .update({
-        name: editName.trim() || null,
-        phone: editPhone.trim(),
+    const { data: updated, error } = await supabase
+        .from('contacts')
+        .update({
+          name: editName.trim() || null,
+          phone: normalizePhone(editPhone),
         email: editEmail.trim() || null,
         company: editCompany.trim() || null,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', contactId);
+        })
+        .eq('id', contactId)
+        .eq('account_id', accountId ?? '')
+        .select('id')
+        .maybeSingle();
 
-    if (error) {
+      if (error || !updated) {
       toast.error(t('toastUpdateFailed'));
     } else {
       toast.success(t('toastUpdated'));

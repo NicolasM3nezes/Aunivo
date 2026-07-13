@@ -53,11 +53,13 @@ export function DealsSettings() {
   async function handleSave() {
     if (!accountId || !dirty) return;
     setSaving(true);
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("accounts")
       .update({ default_currency: selected })
-      .eq("id", accountId);
-    if (error) {
+      .eq("id", accountId)
+      .select('id')
+      .maybeSingle();
+    if (error || !updated) {
       toast.error(t("saveFailed"));
       setSaving(false);
       return;

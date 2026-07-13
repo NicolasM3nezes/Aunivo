@@ -145,13 +145,15 @@ export function PipelineSettings({
         .from("pipelines")
         .update({ name: name.trim() })
         .eq("id", pipeline.id)
-        .eq('account_id', accountId ?? ''),
+        .eq('account_id', accountId ?? '')
+        .select('id')
+        .maybeSingle(),
       supabase.from("pipeline_stages").upsert(stageRows, { onConflict: "id" }),
     ]);
 
     setSaving(false);
 
-    if (renameRes.error || stagesRes.error) {
+    if (renameRes.error || !renameRes.data || stagesRes.error) {
       toast.error(t("toastFailedSave"));
       return;
     }
