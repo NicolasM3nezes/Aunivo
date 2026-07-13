@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   useCallback,
   useEffect,
@@ -29,6 +31,7 @@ import {
   Trash2,
   UserRound,
   ListFilter,
+  ListTodo,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -77,6 +80,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
+import { RelatedTasks } from "@/components/tasks/related-tasks";
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -494,7 +498,7 @@ export function ContactDetailView({
         const { data, error } = await supabase
           .from("deals")
           .select(
-            "id, title, value, currency, status, created_at, stage:pipeline_stages(id, name, color)",
+            "id, user_id, pipeline_id, stage_id, contact_id, title, value, currency, status, created_at, stage:pipeline_stages(id, name, color)",
           )
           .eq("contact_id", targetContactId)
           .eq("account_id", targetAccountId)
@@ -503,7 +507,7 @@ export function ContactDetailView({
         if (version !== requestVersionRef.current) return;
         if (error) throw error;
 
-        setDeals((data ?? []) as Deal[]);
+        setDeals((data ?? []) as unknown as Deal[]);
       } catch (error) {
         if (version !== requestVersionRef.current) return;
 
@@ -1151,30 +1155,42 @@ export function ContactDetailView({
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={openWhatsApp}
-                    variant="outline"
-                  >
-                    <MessageCircle className="size-4" />
-                    Abrir WhatsApp
-                    <ExternalLink className="size-3.5" />
+                  <Button type="button" size="sm" variant="outline" render={<Link href={`/tasks?new=1&contact_id=${contact.id}`} />}>
+                    <ListTodo className="size-4" />Nova tarefa
                   </Button>
+                  <Button
+  type="button"
+  size="sm"
+  variant="outline"
+  onClick={openWhatsApp}
+  aria-label="Abrir conversa no WhatsApp"
+  className="
+    group gap-2
+    border-emerald-500/40
+    text-emerald-700
+    transition-colors
+    hover:border-emerald-500
+    hover:bg-emerald-500/10
+    hover:text-emerald-700
+    dark:text-emerald-400
+    dark:hover:text-emerald-400
+  "
+>
+  <MessageCircle className="size-4" />
 
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => setTemplatePickerOpen(true)}
-                    disabled={sendingTemplate || !contact.phone}
-                  >
-                    {sendingTemplate ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <LayoutTemplate className="size-4" />
-                    )}
-                    Enviar template
-                  </Button>
+  <span>Abrir WhatsApp</span>
+
+  <ExternalLink
+    className="
+      size-3.5 opacity-60
+      transition-transform
+      group-hover:-translate-y-0.5
+      group-hover:translate-x-0.5
+    "
+  />
+</Button>
+
+                  
                 </div>
               </SheetHeader>
 
@@ -1232,6 +1248,7 @@ export function ContactDetailView({
                   className="mt-0 min-h-0 flex-1 overflow-y-auto px-5 py-5"
                 >
                   <div className="mx-auto max-w-xl space-y-5">
+                    <RelatedTasks contactId={contact.id} />
                     <div className="rounded-xl border border-border bg-background/40 p-4">
                       <div className="mb-4">
                         <h3 className="font-medium text-foreground">
@@ -1766,11 +1783,7 @@ export function ContactDetailView({
         </SheetContent>
       </Sheet>
 
-      <TemplatePicker
-        open={templatePickerOpen}
-        onOpenChange={setTemplatePickerOpen}
-        onSelect={handleSendTemplate}
-      />
+      
     </>
   );
 }

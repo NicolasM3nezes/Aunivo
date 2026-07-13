@@ -13,7 +13,8 @@ export const FEATURES = {
   whatsapp: false,
   inbox: false,
   conversations: false,
-  notifications: false,
+  notifications: true,
+  tasks: true,
   ai: false,
   aiAgents: false,
   knowledgeBase: false,
@@ -30,7 +31,7 @@ export const FEATURES = {
   advancedReports: false,
 } as const;
 
-const DISABLED_PAGES = ['/inbox','/notifications','/automations','/broadcasts','/flows','/agents','/conversations','/chats','/whatsapp','/channels','/ai','/knowledge-base','/integrations','/webhooks','/api-keys','/team','/members','/invitations','/join','/analytics'] as const;
+const DISABLED_PAGES = ['/inbox','/automations','/broadcasts','/flows','/agents','/conversations','/chats','/whatsapp','/channels','/ai','/knowledge-base','/integrations','/webhooks','/api-keys','/team','/members','/invitations','/join','/analytics'] as const;
 const DISABLED_APIS = ['/api/automations','/api/flows','/api/ai','/api/account/api-keys','/api/account/members','/api/account/invitations','/api/account/transfer-ownership','/api/invitations','/api/quick-replies','/api/v1','/api/whatsapp'] as const;
 
 const matches = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);

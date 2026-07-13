@@ -1,5 +1,6 @@
 import {
   Coins,
+  Bell,
   FileText,
   KeyRound,
   CreditCard,
@@ -29,6 +30,7 @@ export const SETTINGS_SECTIONS = [
   'profile',
   'security',
   'appearance',
+  'notifications',
   'whatsapp',
   'ai',
   'knowledge',
@@ -44,7 +46,7 @@ export const SETTINGS_SECTIONS = [
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 export const DEFAULT_SECTION: SettingsSection = 'overview';
-export const V1_SETTINGS_SECTIONS: readonly SettingsSection[] = ['overview','profile','security','appearance','fields','deals','billing'];
+export const V1_SETTINGS_SECTIONS: readonly SettingsSection[] = ['overview','profile','security','appearance','notifications','fields','deals','billing'];
 
 /** Rail grouping. `adminOnly` items are hidden for non-admins. */
 export interface SectionMeta {
@@ -59,6 +61,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
   appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
+  notifications: { id: 'notifications', label: 'Notifications', icon: Bell, group: 'account' },
   whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'service' },
   templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'service' },
   'quick-replies': { id: 'quick-replies', label: 'Quick replies', icon: Zap, group: 'service' },

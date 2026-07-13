@@ -57,6 +57,10 @@ export interface Account {
   name: string;
   /** auth.users.id of the immutable owner. */
   owner_user_id: string;
+  /** Account-wide ISO-4217 currency (migration 021). */
+  default_currency?: string;
+  /** IANA timezone used by reminders and account defaults (migration 038). */
+  timezone?: string;
   created_at: string;
   updated_at: string;
 }
@@ -192,7 +196,10 @@ export interface Conversation {
 // Notifications (migration 027)
 // ============================================================
 
-export type NotificationType = 'conversation_assigned';
+export type NotificationType = 'conversation_assigned' | 'task_assigned' | 'task_due_today' | 'task_overdue'
+  | 'billing_subscription_activated' | 'billing_payment_confirmed' | 'billing_payment_failed'
+  | 'billing_payment_action_required' | 'billing_cancel_scheduled' | 'billing_canceled'
+  | 'billing_trial_ending' | 'billing_grace_ending' | 'billing_limit_warning' | 'billing_limit_reached';
 
 export interface Notification {
   id: string;
@@ -202,6 +209,9 @@ export interface Notification {
   type: NotificationType;
   conversation_id?: string;
   contact_id?: string;
+  task_id?: string;
+  /** Optional idempotency key used by task notifications. */
+  dedupe_key?: string;
   /** Who triggered it. Null when an automation/system assigned it. */
   actor_user_id?: string;
   title: string;
@@ -363,6 +373,8 @@ export type DealStatus = 'open' | 'won' | 'lost';
 export interface Deal {
   id: string;
   user_id: string;
+  /** Multi-tenant boundary added by migration 017. */
+  account_id: string;
   pipeline_id: string;
   stage_id: string;
   /**

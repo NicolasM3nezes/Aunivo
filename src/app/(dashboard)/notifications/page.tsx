@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 // Icon per notification type. Only one type exists today
 // (conversation_assigned) but this keeps future types a one-line add.
-const TYPE_ICON: Record<Notification["type"], typeof Bell> = {
+const TYPE_ICON: Partial<Record<Notification["type"], typeof Bell>> = {
   conversation_assigned: UserPlus,
 };
 
@@ -104,7 +104,7 @@ export default function NotificationsPage() {
         .eq("id", id)
         .is("read_at", null);
       if (updateErr) {
-        toast.error("Failed to mark notification as read");
+        toast.error("Não foi possível marcar a notificação como lida");
         load();
       }
     },
@@ -116,6 +116,8 @@ export default function NotificationsPage() {
       if (!n.read_at) markRead(n.id);
       if (n.conversation_id) {
         router.push(`/inbox?c=${n.conversation_id}`);
+      } else if (n.task_id) {
+        router.push("/tasks");
       }
     },
     [markRead, router],
@@ -137,7 +139,7 @@ export default function NotificationsPage() {
       .is("read_at", null);
     setMarkingAll(false);
     if (updateErr) {
-      toast.error("Failed to mark all as read");
+      toast.error("Não foi possível marcar as notificações como lidas");
       load();
     }
   }, [unreadIds.length, load]);
@@ -147,7 +149,7 @@ export default function NotificationsPage() {
       <div className="flex h-64 flex-col items-center justify-center gap-2">
         <p className="text-sm text-destructive">{error}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
-          Retry
+          Tentar novamente
         </Button>
       </div>
     );
@@ -165,9 +167,9 @@ export default function NotificationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+          <h1 className="text-2xl font-bold text-foreground">Notificações</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Conversations other teammates assign to you show up here.
+            Acompanhe atribuições, tarefas e avisos importantes.
           </p>
         </div>
         <Button
@@ -181,7 +183,7 @@ export default function NotificationsPage() {
           ) : (
             <CheckCheck className="h-4 w-4" />
           )}
-          Mark all as read
+          Marcar todas como lidas
         </Button>
       </div>
 
@@ -191,11 +193,10 @@ export default function NotificationsPage() {
             <Bell className="h-6 w-6 text-primary" />
           </div>
           <p className="mt-3 text-sm font-medium text-foreground">
-            No notifications yet
+            Nenhuma notificação
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            You&apos;ll see an alert here when someone assigns you a
-            conversation.
+            Seus alertas de tarefas e atribuições aparecerão aqui.
           </p>
         </div>
       ) : (
@@ -241,7 +242,7 @@ export default function NotificationsPage() {
                       </span>
                       {isUnread && (
                         <span
-                          aria-label="Unread"
+                          aria-label="Não lida"
                           className="h-2 w-2 flex-shrink-0 rounded-full bg-primary"
                         />
                       )}

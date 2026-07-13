@@ -21,6 +21,7 @@
     "notifications": "Notifications",
     "contacts": "Contacts",
     "pipelines": "Pipelines",
+    "tasks": "Tasks",
     "reports": "Reports",
     "broadcasts": "Broadcasts",
     "automations": "Automations",
@@ -47,6 +48,7 @@
     "notifications": "Notifications",
     "contacts": "Contacts",
     "pipelines": "Pipelines",
+    "tasks": "Tasks",
     "broadcasts": "Broadcasts",
     "automations": "Automations",
     "settings": "Settings",
@@ -1222,6 +1224,17 @@
       "tagNone": "{mode} tag (none picked)"
     }
   },
+  "Tasks": {
+    "eyebrow": "Work organization", "title": "Tasks", "description": "Organize deadlines, owners, and next steps.", "create": "New task",
+    "summary": { "today": "Due today", "overdue": "Overdue", "completed": "Completed", "pending": "Pending" },
+    "status": { "pending": "Pending", "completed": "Completed", "cancelled": "Cancelled" }, "priority": { "low": "Low", "medium": "Medium", "high": "High" },
+    "filters": { "search": "Search title or description", "status": "Status", "priority": "Priority", "period": "Due date", "allStatuses": "All statuses", "allPriorities": "All priorities", "anyDate": "Any date", "today": "Today", "overdue": "Overdue", "week": "Next 7 days" },
+    "fields": { "title": "Title", "titlePlaceholder": "E.g. Follow up on the proposal", "description": "Description", "descriptionPlaceholder": "Add context and next steps", "priority": "Priority", "dueAt": "Date and time", "contact": "Contact", "deal": "Deal", "assignee": "Assignee", "none": "None", "unassigned": "Unassigned" },
+    "form": { "createTitle": "Create task", "editTitle": "Edit task", "description": "Define what needs to be done and connect the right context." },
+    "actions": { "save": "Save task", "saving": "Saving...", "cancel": "Cancel", "retry": "Try again", "edit": "Edit", "complete": "Complete", "reopen": "Reopen", "cancelTask": "Cancel task", "delete": "Delete" },
+    "empty": { "title": "No tasks yet", "description": "Create your first task to track next steps.", "filteredTitle": "No tasks found", "filteredDescription": "Adjust the filters to see other results." },
+    "feedback": { "saved": "Task saved.", "updated": "Task updated.", "deleted": "Task deleted." }, "errors": { "load": "Could not load tasks.", "save": "Could not save task.", "delete": "Could not delete task." }, "assignedTo": "Assignee: {name}", "confirmDelete": "Delete task “{title}”?"
+  },
   "Settings": {
     "pageTitle": "Settings",
     "pageDesc": "Everything in one place — your account and your workspace. Pick a section to manage it.",
@@ -1524,6 +1537,7 @@
       "profile": "Your profile",
       "security": "Login & security",
       "appearance": "Appearance",
+      "notifications": "Notifications",
       "whatsapp": "WhatsApp",
       "templates": "Templates",
       "quick-replies": "Quick replies",
@@ -1541,6 +1555,13 @@
       "team": "Team",
       "integrations": "Integrations",
       "billing": "Plan & billing"
+    },
+    "notifications": {
+      "title": "Notifications", "description": "Choose which task alerts you receive in Aunivo.",
+      "task_assigned": { "title": "Task assigned", "description": "Notify you when someone assigns a task to you." },
+      "task_due_today": { "title": "Task due today", "description": "Notify you about tasks due today." },
+      "task_overdue": { "title": "Task overdue", "description": "Notify you when a pending task is overdue." },
+      "saved": "Preferences updated.", "loadError": "Could not load your preferences.", "saveError": "Could not save your preferences."
     },
     "profile": {
       "title": "Your profile",

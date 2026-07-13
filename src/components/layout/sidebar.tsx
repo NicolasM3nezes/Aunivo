@@ -13,6 +13,7 @@ import {
   GitBranch,
   Headphones,
   LayoutDashboard,
+  ListTodo,
   LogOut,
   BarChart3,
   Settings,
@@ -90,6 +91,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
   { href: "/contacts", labelKey: "contacts", icon: Users },
   { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
+  { href: "/tasks", labelKey: "tasks", icon: ListTodo },
   { href: "/reports", labelKey: "reports", icon: BarChart3 },
 ];
 

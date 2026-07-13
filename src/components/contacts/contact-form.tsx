@@ -535,7 +535,7 @@ export function ContactForm({
               <Select
                 value={leadSource || EMPTY_SOURCE_VALUE}
                 onValueChange={(value) =>
-                  setLeadSource(value === EMPTY_SOURCE_VALUE ? '' : value)
+                  setLeadSource(!value || value === EMPTY_SOURCE_VALUE ? '' : value)
                 }
                 disabled={saving}
               >

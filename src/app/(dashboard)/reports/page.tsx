@@ -526,7 +526,7 @@ export default function ReportsPage() {
 
             <Select
   value={pipelineFilter}
-  onValueChange={setPipelineFilter}
+  onValueChange={(value) => value && setPipelineFilter(value)}
 >
   <SelectTrigger id="report-pipeline">
     <GitBranch className="size-4 shrink-0 text-muted-foreground" />

@@ -21,6 +21,7 @@
     "notifications": "Notificações",
     "contacts": "Contatos",
     "pipelines": "Funis",
+    "tasks": "Tarefas",
     "reports": "Relatórios",
     "broadcasts": "Campanhas",
     "automations": "Automações",
@@ -47,6 +48,7 @@
     "notifications": "Notificações",
     "contacts": "Contatos",
     "pipelines": "Funis",
+    "tasks": "Tarefas",
     "broadcasts": "Campanhas",
     "automations": "Automações",
     "settings": "Configurações",
@@ -1222,6 +1224,24 @@
       "tagNone": "Tag {mode} (nenhuma escolhida)"
     }
   },
+  "Tasks": {
+    "eyebrow": "Organização do trabalho",
+    "title": "Tarefas",
+    "description": "Organize prazos, responsáveis e próximos passos do seu atendimento.",
+    "create": "Nova tarefa",
+    "summary": { "today": "Para hoje", "overdue": "Atrasadas", "completed": "Concluídas", "pending": "Pendentes" },
+    "status": { "pending": "Pendente", "completed": "Concluída", "cancelled": "Cancelada" },
+    "priority": { "low": "Baixa", "medium": "Média", "high": "Alta" },
+    "filters": { "search": "Buscar por título ou descrição", "status": "Status", "priority": "Prioridade", "period": "Prazo", "allStatuses": "Todos os status", "allPriorities": "Todas as prioridades", "anyDate": "Qualquer prazo", "today": "Hoje", "overdue": "Atrasadas", "week": "Próximos 7 dias" },
+    "fields": { "title": "Título", "titlePlaceholder": "Ex.: Retornar proposta ao cliente", "description": "Descrição", "descriptionPlaceholder": "Adicione contexto e próximos passos", "priority": "Prioridade", "dueAt": "Data e horário", "contact": "Contato", "deal": "Negócio", "assignee": "Responsável", "none": "Nenhum", "unassigned": "Sem responsável" },
+    "form": { "createTitle": "Criar tarefa", "editTitle": "Editar tarefa", "description": "Defina o que precisa ser feito e conecte a tarefa ao contexto certo." },
+    "actions": { "save": "Salvar tarefa", "saving": "Salvando...", "cancel": "Cancelar", "retry": "Tentar novamente", "edit": "Editar", "complete": "Concluir", "reopen": "Reabrir", "cancelTask": "Cancelar tarefa", "delete": "Excluir" },
+    "empty": { "title": "Nenhuma tarefa criada", "description": "Crie sua primeira tarefa para acompanhar os próximos passos.", "filteredTitle": "Nenhuma tarefa encontrada", "filteredDescription": "Ajuste os filtros para ver outros resultados." },
+    "feedback": { "saved": "Tarefa salva.", "updated": "Tarefa atualizada.", "deleted": "Tarefa excluída." },
+    "errors": { "load": "Não foi possível carregar as tarefas.", "save": "Não foi possível salvar a tarefa.", "delete": "Não foi possível excluir a tarefa." },
+    "assignedTo": "Responsável: {name}",
+    "confirmDelete": "Excluir a tarefa “{title}”?"
+  },
   "Settings": {
     "pageTitle": "Configurações",
     "pageDesc": "Tudo em um só lugar: sua conta e seu espaço de trabalho. Escolha uma seção para gerenciá-la.",
@@ -1514,6 +1534,7 @@
       "profile": "Seu perfil",
       "security": "Login e segurança",
       "appearance": "Aparência",
+      "notifications": "Notificações",
       "whatsapp": "WhatsApp",
       "templates": "Modelos",
       "quick-replies": "Respostas rápidas",
@@ -1531,6 +1552,16 @@
       "team": "Equipe",
       "integrations": "Integrações",
       "billing": "Plano e cobrança"
+    },
+    "notifications": {
+      "title": "Notificações",
+      "description": "Escolha quais alertas de tarefas você deseja receber no Aunivo.",
+      "task_assigned": { "title": "Tarefa atribuída", "description": "Avise quando outra pessoa atribuir uma tarefa a você." },
+      "task_due_today": { "title": "Tarefa para hoje", "description": "Avise sobre tarefas que vencem hoje." },
+      "task_overdue": { "title": "Tarefa atrasada", "description": "Avise quando uma tarefa pendente estiver atrasada." },
+      "saved": "Preferências atualizadas.",
+      "loadError": "Não foi possível carregar suas preferências.",
+      "saveError": "Não foi possível salvar suas preferências."
     },
     "profile": {
       "title": "Seu perfil",

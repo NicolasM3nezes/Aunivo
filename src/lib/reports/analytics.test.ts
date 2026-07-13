@@ -10,11 +10,11 @@ describe('buildReport', () => {
       { created_at: '2026-07-12T10:00:00Z', lead_source: 'Site', is_active: false },
     ];
     const deals = [
-      { status: 'won', value: 200, stage_id: 'b', created_at: '2026-06-01T00:00:00Z', updated_at: '2026-07-12T10:00:00Z' },
-      { status: 'lost', value: 50, stage_id: 'b', created_at: '2026-07-10T00:00:00Z', updated_at: '2026-07-11T10:00:00Z' },
-      { status: 'open', value: 300, stage_id: 'a', created_at: '2026-07-12T00:00:00Z', updated_at: null },
+      { status: 'won', value: 200, stage_id: 'b', pipeline_id: 'p', created_at: '2026-06-01T00:00:00Z', updated_at: '2026-07-12T10:00:00Z' },
+      { status: 'lost', value: 50, stage_id: 'b', pipeline_id: 'p', created_at: '2026-07-10T00:00:00Z', updated_at: '2026-07-11T10:00:00Z' },
+      { status: 'open', value: 300, stage_id: 'a', pipeline_id: 'p', created_at: '2026-07-12T00:00:00Z', updated_at: null },
     ];
-    const report = buildReport(contacts, deals, [{ id: 'b', name: 'Fim', position: 2 }, { id: 'a', name: 'Início', position: 1 }], '7', now);
+    const report = buildReport(contacts, deals, [{ id: 'b', name: 'Fim', position: 2, pipeline_id: 'p', pipeline_name: 'Principal' }, { id: 'a', name: 'Início', position: 1, pipeline_id: 'p', pipeline_name: 'Principal' }], [{ id: 'p', name: 'Principal' }], '7', now);
     expect(report.totalContacts).toBe(2);
     expect(report.newContacts).toBe(1);
     expect(report.conversion).toBe(0.5);
@@ -25,7 +25,7 @@ describe('buildReport', () => {
   });
 
   it('retorna zeros quando não há negociações finalizadas', () => {
-    const report = buildReport([], [], [], '30', new Date(2026, 6, 12));
+    const report = buildReport([], [], [], [], '30', new Date(2026, 6, 12));
     expect(report.conversion).toBe(0);
     expect(report.average).toBe(0);
     expect(report.results.every((item) => item.value === 0)).toBe(true);

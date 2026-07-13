@@ -15,6 +15,7 @@ import {
   DollarSign,
   Loader2,
   MessageSquare,
+  ListTodo,
   Trash2,
   X,
 } from "lucide-react";
@@ -33,6 +34,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES } from "@/lib/currency";
 import { createClient } from "@/lib/supabase/client";
+import { RelatedTasks } from "@/components/tasks/related-tasks";
 import type {
   Contact,
   Conversation,
@@ -387,10 +389,12 @@ export function DealForm({
             <SheetTitle className="text-lg font-semibold tracking-tight">
               {deal ? t("editDeal") : t("newDeal")}
             </SheetTitle>
+            {deal ? <Button type="button" size="sm" variant="outline" className="mt-2 w-fit" render={<Link href={`/tasks?new=1&deal_id=${deal.id}${deal.contact_id ? `&contact_id=${deal.contact_id}` : ''}`} />}><ListTodo className="size-4" />Nova tarefa</Button> : null}
           </SheetHeader>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="space-y-6 px-5 py-5">
+              {deal ? <RelatedTasks dealId={deal.id} contactId={deal.contact_id ?? undefined} compact /> : null}
               <section className="space-y-4">
                 <div className="grid gap-2">
                   <Label htmlFor="deal-title">

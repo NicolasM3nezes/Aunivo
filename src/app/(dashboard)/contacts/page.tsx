@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
@@ -55,19 +55,22 @@ import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
+import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 
 interface ContactWithTags extends Contact {
   tags?: Tag[];
+  lead_source?: string | null;
 }
 
 export default function ContactsPage() {
   const t = useTranslations('Contacts.page');
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+  const { accountId } = useAuth();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
@@ -105,22 +108,53 @@ export default function ContactsPage() {
   const fetchSeq = useRef(0);
 
   const fetchTags = useCallback(async () => {
-    const { data } = await supabase.from('tags').select('*');
-    if (data) {
-      const map: Record<string, Tag> = {};
-      data.forEach((t) => (map[t.id] = t));
-      setTagsMap(map);
-      // Drop any filter selections whose tag no longer exists (e.g. a tag
-      // deleted elsewhere) so it can't linger invisibly in the query.
-      setSelectedTagIds((prev) => {
-        const pruned = prev.filter((id) => map[id]);
-        return pruned.length === prev.length ? prev : pruned;
-      });
+    if (!accountId) {
+      setTagsMap({});
+      setSelectedTagIds([]);
+      return;
     }
-  }, [supabase]);
+
+    const { data, error } = await supabase
+      .from('tags')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.warn('[contacts:tags:list]', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      return;
+    }
+
+    const map: Record<string, Tag> = {};
+    (data ?? []).forEach((tag) => {
+      map[tag.id] = tag as Tag;
+    });
+
+    setTagsMap(map);
+
+    // Remove filtros de etiquetas que não existem mais.
+    setSelectedTagIds((current) => {
+      const pruned = current.filter((id) => Boolean(map[id]));
+      return pruned.length === current.length ? current : pruned;
+    });
+  }, [accountId, supabase]);
 
   const fetchContacts = useCallback(async () => {
     const seq = ++fetchSeq.current;
+
+    if (!accountId) {
+      setContacts([]);
+      setTotalCount(0);
+      setSelected(new Set());
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     // The visible rows are about to change — drop any selection that
     // referred to the old page/search results so the bulk bar can't
@@ -158,12 +192,15 @@ export default function ContactsPage() {
       let query = supabase
         .from('contacts')
         .select('*', { count: 'exact' })
+        .eq('account_id', accountId)
         .order('created_at', { ascending: false })
         .range(from, to);
 
       if (term) {
         const like = `%${term}%`;
-        query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+        query = query.or(
+          `name.ilike.${like},phone.ilike.${like},email.ilike.${like},company.ilike.${like},lead_source.ilike.${like}`,
+        );
       }
 
       const { data, count: exactCount, error } = await query;
@@ -178,6 +215,13 @@ export default function ContactsPage() {
     }
 
     setTotalCount(count);
+
+    // Se o usuário apagar o último contato da página atual, volta para
+    // a página anterior em vez de deixar uma página vazia fora do intervalo.
+    if (contactRows.length === 0 && page > 0 && from >= count) {
+      setPage((current) => Math.max(0, current - 1));
+      return;
+    }
 
     if (contactRows.length === 0) {
       setContacts([]);
@@ -208,7 +252,7 @@ export default function ContactsPage() {
 
     setContacts(enriched);
     setLoading(false);
-  }, [supabase, page, search, selectedTagIds, tagsMap, t]);
+  }, [accountId, page, search, selectedTagIds, supabase, tagsMap, t]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (Supabase await), not
@@ -251,13 +295,14 @@ export default function ContactsPage() {
   }
 
   async function handleDelete() {
-    if (!deleteTarget) return;
+    if (!deleteTarget || !accountId) return;
     setDeleting(true);
 
     const { error } = await supabase
       .from('contacts')
       .delete()
-      .eq('id', deleteTarget.id);
+      .eq('id', deleteTarget.id)
+      .eq('account_id', accountId);
 
     if (error) {
       toast.error(t('toastFailedDelete'));
@@ -298,10 +343,14 @@ export default function ContactsPage() {
 
   async function handleBulkDelete() {
     const ids = [...selected];
-    if (ids.length === 0) return;
+    if (ids.length === 0 || !accountId) return;
     setDeleting(true);
 
-    const { error } = await supabase.from('contacts').delete().in('id', ids);
+    const { error } = await supabase
+      .from('contacts')
+      .delete()
+      .eq('account_id', accountId)
+      .in('id', ids);
 
     if (error) {
       toast.error(t('toastBulkFailedDelete'));
@@ -425,6 +474,7 @@ export default function ContactsPage() {
                 </span>
                 {selectedTagIds.length > 0 && (
                   <button
+                    type="button"
                     onClick={clearTagFilters}
                     className="text-xs text-muted-foreground hover:text-foreground"
                   >
@@ -480,6 +530,7 @@ export default function ContactsPage() {
                 >
                   {tag.name}
                   <button
+                    type="button"
                     onClick={() => toggleTagFilter(id)}
                     aria-label={`Remove ${tag.name} filter`}
                     className="hover:opacity-70"
@@ -490,6 +541,7 @@ export default function ContactsPage() {
               );
             })}
             <button
+              type="button"
               onClick={clearTagFilters}
               className="text-xs text-muted-foreground hover:text-foreground px-1"
             >
@@ -529,7 +581,7 @@ export default function ContactsPage() {
       )}
 
       {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="overflow-x-auto rounded-lg border border-border">
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
@@ -546,6 +598,7 @@ export default function ContactsPage() {
               <TableHead className="text-muted-foreground">{t('tableColumns.phone')}</TableHead>
               <TableHead className="text-muted-foreground hidden md:table-cell">{t('tableColumns.email')}</TableHead>
               <TableHead className="text-muted-foreground hidden lg:table-cell">{t('tableColumns.company')}</TableHead>
+              <TableHead className="text-muted-foreground hidden md:table-cell">Origem</TableHead>
               <TableHead className="text-muted-foreground hidden md:table-cell">{t('tableColumns.tags')}</TableHead>
               <TableHead className="text-muted-foreground hidden lg:table-cell">{t('tableColumns.createdAt')}</TableHead>
               <TableHead className="text-muted-foreground w-12" />
@@ -554,7 +607,7 @@ export default function ContactsPage() {
           <TableBody>
             {loading ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={9} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="size-6 animate-spin text-primary" />
                     <p className="text-sm text-muted-foreground">{t('loading')}</p>
@@ -563,7 +616,7 @@ export default function ContactsPage() {
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={9} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Users className="size-8 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
@@ -612,6 +665,20 @@ export default function ContactsPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground hidden lg:table-cell text-sm">
                     {contact.company || <span className="text-muted-foreground">-</span>}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {contact.lead_source?.trim() ? (
+                      <span
+                        className="inline-flex max-w-36 items-center truncate rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+                        title={contact.lead_source}
+                      >
+                        {contact.lead_source}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Não informado
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <div className="flex flex-wrap gap-1">
