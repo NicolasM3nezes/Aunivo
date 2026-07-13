@@ -101,14 +101,13 @@ const plans = [
 ] as const;
 
 const comparison = [
-  ['Usuários', '1', 'Até 3', 'Personalizado'],
+  ['Usuários', '1', '1', 'Sob consulta'],
   ['Contatos', 'Até 200', 'Até 5.000', 'Sob medida'],
-  ['Funis', '1', 'Até 5', 'Personalizado'],
-  ['Automações', '1', 'Até 25', 'Personalizado'],
-  ['Campanhas', '—', 'Incluídas', 'Incluídas'],
-  ['Respostas de IA', '25/mês', '2.000/mês', 'Sob medida'],
-  ['Base de conhecimento', '—', 'Incluída', 'Incluída'],
-  ['API, webhooks e MCP', '—', '—', 'Incluídos'],
+  ['Funis', '1', '1', 'Sob consulta'],
+  ['Follow-up', 'Incluído', 'Incluído', 'Sob medida'],
+  ['Histórico de clientes', 'Incluído', 'Incluído', 'Incluído'],
+  ['Etiquetas', 'Incluídas', 'Incluídas', 'Incluídas'],
+  ['Relatórios básicos', 'Incluídos', 'Incluídos', 'Incluídos'],
   ['Suporte prioritário', '—', 'Incluído', 'Incluído'],
 ] as const;
 
@@ -139,7 +138,7 @@ const faqs = [
   {
     value: 'basic',
     question: `Quanto custa o plano ${PLAN_DISPLAY.free.name}?`,
-    answer: `O plano ${PLAN_DISPLAY.free.name} custa ${PLAN_DISPLAY.free.price} e inclui os recursos essenciais para começar a organizar o atendimento e usar automação no Aunivo.`,
+    answer: `O plano ${PLAN_DISPLAY.free.name} oferece os recursos essenciais para organizar contatos, oportunidades e retornos no Aunivo.`,
   },
   {
     value: 'pro',
@@ -239,7 +238,7 @@ export default function PlansPage() {
             </h2>
             <p className="text-muted-foreground mx-auto mt-5 max-w-2xl leading-7">
               Todos os planos foram pensados para reduzir tarefas manuais e
-              ajudar sua equipe a responder melhor, acompanhar mais e vender com
+              ajudar sua empresa a organizar melhor, acompanhar mais e vender com
               mais clareza.
             </p>
           </div>

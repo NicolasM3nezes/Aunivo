@@ -11,6 +11,7 @@ import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import {
   Crown,
   GitBranch,
+  Headphones,
   LayoutDashboard,
   LogOut,
   BarChart3,
@@ -292,6 +293,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               );
             })}
           </ul>
+          {process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ? (
+            <a href={`https://wa.me/${process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <Headphones className="size-4" /> Falar com o suporte
+            </a>
+          ) : null}
         </nav>
 
         {/* User section */}

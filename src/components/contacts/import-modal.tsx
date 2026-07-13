@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/use-auth';
 import {
   dedupeByPhone,
   isUniqueViolation,
-  normalizeKey,
 } from '@/lib/contacts/dedupe';
 import {
   parseContactCsv,
@@ -38,6 +37,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { isValidBrazilianPhone, normalizePhone } from '@/lib/phone';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
 const PREVIEW_LIMIT = 5;
@@ -216,7 +216,7 @@ export function ImportModal({
       const user = session?.user;
       if (!user) throw new Error('Not authenticated');
       if (!accountId)
-        throw new Error('Your profile is not linked to an account.');
+        throw new Error('Perfil sem vínculo com uma conta.');
 
       let imported = 0;
       let skipped = 0;
@@ -238,10 +238,15 @@ export function ImportModal({
             (r) => (r as { phone_normalized: string | null }).phone_normalized
           )
           .filter((p): p is string => !!p)
+          .map((phone) => normalizePhone(phone))
       );
 
       const toInsert = unique.filter((row) => {
-        if (existing.has(normalizeKey(row.phone))) {
+        if (!isValidBrazilianPhone(row.phone)) {
+          failed++;
+          return false;
+        }
+        if (existing.has(normalizePhone(row.phone))) {
           skipped++;
           return false;
         }
@@ -274,7 +279,7 @@ export function ImportModal({
         const rows = chunk.map((row) => ({
           user_id: user.id,
           account_id: accountId,
-          phone: row.phone,
+          phone: normalizePhone(row.phone),
           name: row.name || null,
           email: row.email || null,
           company: row.company || null,

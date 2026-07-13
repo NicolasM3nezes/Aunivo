@@ -8,8 +8,8 @@ export function PublicFooter() {
         <div>
           <AunivoBrand />
           <p className="text-muted-foreground mt-4 max-w-sm text-sm leading-6">
-            Automação comercial com inteligência artificial para empresas que
-            vendem e atendem pelo WhatsApp.
+            Um CRM simples para organizar clientes, oportunidades e próximos
+            retornos.
           </p>
         </div>
         <div>

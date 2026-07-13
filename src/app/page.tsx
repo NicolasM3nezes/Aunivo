@@ -331,7 +331,7 @@ export default function HomePage() {
             <div>
               <SectionEyebrow>O problema</SectionEyebrow>
               <h2 className="mt-4 max-w-xl text-3xl font-bold tracking-[-.03em] sm:text-4xl">
-                Sua equipe não deveria perder tempo procurando contexto
+                Você não deveria perder oportunidades por falta de organização
               </h2>
               <p className="text-muted-foreground mt-5 max-w-xl text-lg leading-8">
                 Conversas espalhadas, respostas demoradas e leads sem
@@ -374,7 +374,7 @@ export default function HomePage() {
             <div className="mx-auto max-w-3xl text-center">
               <SectionEyebrow>Uma operação mais inteligente</SectionEyebrow>
               <h2 className="mt-4 text-3xl font-bold tracking-[-.03em] sm:text-4xl">
-                Tudo o que sua equipe precisa para atender, organizar e vender
+                Tudo o que sua empresa precisa para organizar e vender
               </h2>
               <p className="text-muted-foreground mx-auto mt-5 max-w-2xl leading-7">
                 Recursos conectados em uma experiência simples, criada para
@@ -443,16 +443,16 @@ export default function HomePage() {
                 Tecnologia que simplifica sem deixar sua operação genérica
               </h2>
               <p className="mt-5 max-w-lg leading-7 text-white/65">
-                Automação com contexto, organização comercial e uma experiência
-                pensada para empresas que vendem pelo WhatsApp.
+                Organização comercial e uma experiência simples para pequenas
+                empresas acompanharem cada oportunidade.
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               {[
-                'Criado para operações comerciais no WhatsApp',
+                'Criado para pequenas empresas',
                 'Configuração simples e orientada',
-                'Automação com linguagem natural',
+                'Acompanhamento simples e objetivo',
                 'Informações centralizadas',
                 'Menos tarefas manuais',
                 'Estrutura preparada para crescer',
@@ -632,8 +632,8 @@ export default function HomePage() {
             </h2>
 
             <p className="mx-auto mt-4 max-w-2xl leading-7 text-white/70">
-              Organize seu atendimento, automatize tarefas e transforme cada
-              conversa em um próximo passo claro.
+              Organize seus contatos, acompanhe negociações e transforme cada
+              oportunidade em um próximo passo claro.
             </p>
 
             <Button
@@ -679,7 +679,7 @@ function ProductDemo() {
           </div>
 
           <span className="text-muted-foreground text-xs font-medium">
-            Aunivo • Conversas
+            Aunivo • CRM comercial
           </span>
 
           <span className="size-8" />
@@ -717,7 +717,7 @@ function ProductDemo() {
                         {name}
                       </p>
                       <p className="text-muted-foreground truncate text-[9px]">
-                        Gostaria de saber mais...
+                        Follow-up comercial
                       </p>
                     </div>
                   </div>
@@ -731,31 +731,30 @@ function ProductDemo() {
               <div>
                 <p className="text-sm font-semibold">Mariana Alves</p>
                 <p className="text-[10px] text-emerald-500">
-                  ● Lead qualificado
+                  ● Oportunidade em andamento
                 </p>
               </div>
 
               <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-semibold text-emerald-600">
-                IA ativa
+                Retorno hoje
               </span>
             </div>
 
             <div className="flex flex-1 flex-col justify-center gap-3">
               <div className="bg-muted max-w-[80%] rounded-2xl rounded-bl-md p-3 text-xs">
-                Olá! Vocês atendem empresas pequenas?
+                Interesse registrado no plano Pro.
               </div>
 
               <div className="bg-primary text-primary-foreground ml-auto max-w-[88%] rounded-2xl rounded-br-md p-3 text-xs shadow-sm">
                 <span className="mb-1 flex items-center gap-1 text-[9px] opacity-75">
-                  <Bot className="size-3" />
-                  IA Aunivo
+                  Registro comercial
                 </span>
-                Sim! Posso entender seu cenário e indicar a melhor forma de
-                começar. Quantas pessoas atendem pelo WhatsApp hoje?
+                Proposta enviada. Retomar o contato nesta tarde para confirmar
+                os próximos passos.
               </div>
 
               <div className="bg-muted max-w-[80%] rounded-2xl rounded-bl-md p-3 text-xs">
-                Somos 3 pessoas.
+                Responsável: Mariana • Valor: R$ 2.400
               </div>
             </div>
 
@@ -763,7 +762,7 @@ function ProductDemo() {
               <div className="border-border/70 bg-background rounded-xl border p-2.5">
                 <p className="text-muted-foreground text-[9px]">Funil</p>
                 <p className="mt-1 text-[10px] font-semibold">
-                  Novo lead → Qualificado
+                  Novo contato → Negociação
                 </p>
               </div>
 
@@ -786,9 +785,9 @@ function ProductDemo() {
           </span>
           <div>
             <p className="text-muted-foreground text-[10px]">
-              Qualificação concluída
+              Follow-up atualizado
             </p>
-            <p className="text-xs font-semibold">Lead pronto para avançar</p>
+            <p className="text-xs font-semibold">Oportunidade pronta para avançar</p>
           </div>
         </div>
       </div>

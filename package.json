@@ -1,8 +1,8 @@
 {
-  "name": "wacrm",
+  "name": "aunivo",
   "version": "0.8.0",
   "private": true,
-  "description": "Aunivo — automação comercial com inteligência artificial para atendimento e vendas pelo WhatsApp.",
+  "description": "Aunivo — CRM simples para pequenas empresas organizarem clientes, negociações e retornos.",
   "license": "MIT",
   "author": "Arnas Donauskas",
   "homepage": "https://github.com/ArnasDon/wacrm",

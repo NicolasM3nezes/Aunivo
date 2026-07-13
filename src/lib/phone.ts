@@ -18,9 +18,10 @@ export function formatBrazilianPhone(value: string): string {
   const hadCountryCode = value.trim().startsWith('+55');
   const digits = phoneDigits(value).slice(0, 11);
   if (!digits) return '';
+  if (digits.length === 1) return hadCountryCode ? `+55 ${digits}` : digits;
   const ddd = digits.slice(0, 2);
   const rest = digits.slice(2);
-  let local = digits.length <= 2 ? `(${ddd}` : `(${ddd}) ${rest}`;
+  let local = digits.length === 2 ? `(${ddd})` : `(${ddd}) ${rest}`;
   if (rest.length > 4) {
     const split = rest.length > 8 ? 5 : 4;
     local = `(${ddd}) ${rest.slice(0, split)}-${rest.slice(split)}`;

@@ -161,7 +161,7 @@ export function ContactForm({
       } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) throw new Error('Not authenticated');
-      if (!accountId) throw new Error('Your profile is not linked to an account.');
+      if (!accountId) throw new Error('Perfil sem vínculo com uma conta.');
 
       let contactId = contact?.id;
 

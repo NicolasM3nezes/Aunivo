@@ -8,6 +8,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { FEATURES } from '@/config/features';
 import {
   Check,
   CircleDot,
@@ -145,10 +146,10 @@ export function DealForm({
       setLoadingData(true);
 
       try {
-        const [contactsResult, profilesResult] = await Promise.all([
-          supabase.from("contacts").select("*").order("name"),
-          supabase.from("profiles").select("*").order("full_name"),
-        ]);
+        const contactsResult = await supabase.from("contacts").select("*").eq('account_id', accountId ?? '').order("name");
+        const profilesResult = FEATURES.team
+          ? await supabase.from("profiles").select("*").eq('account_id', accountId ?? '').order("full_name")
+          : { data: [], error: null };
 
         if (cancelled) return;
 
@@ -178,12 +179,12 @@ export function DealForm({
     return () => {
       cancelled = true;
     };
-  }, [open, supabase]);
+  }, [open, supabase, accountId]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!open || !contactId) {
+    if (!FEATURES.inbox || !open || !contactId) {
       setLinkedConversation(null);
       return;
     }
@@ -226,7 +227,7 @@ export function DealForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!title.trim() || !contactId || !stageId) {
+    if (!title.trim() || !contactId || !stageId || !accountId || !contacts.some((contact) => contact.id === contactId) || !stages.some((stage) => stage.id === stageId)) {
       toast.error(t("toastRequired"));
       return;
     }
@@ -242,7 +243,7 @@ export function DealForm({
         contact_id: contactId,
         pipeline_id: pipelineId,
         stage_id: stageId,
-        assigned_to: assignedTo || null,
+        assigned_to: FEATURES.team ? assignedTo || null : null,
         notes: notes.trim() || null,
         expected_close_date: expectedCloseDate || null,
       };
@@ -251,7 +252,8 @@ export function DealForm({
         const { error } = await supabase
           .from("deals")
           .update(payload)
-          .eq("id", deal.id);
+          .eq("id", deal.id)
+          .eq('account_id', accountId);
 
         if (error) {
           console.error("Erro ao atualizar negócio:", error);
@@ -305,7 +307,8 @@ export function DealForm({
       const { error } = await supabase
         .from("deals")
         .update({ status })
-        .eq("id", deal.id);
+        .eq("id", deal.id)
+        .eq('account_id', accountId ?? '');
 
       if (error) {
         console.error("Erro ao alterar status do negócio:", error);
@@ -337,7 +340,8 @@ export function DealForm({
       const { error } = await supabase
         .from("deals")
         .delete()
-        .eq("id", deal.id);
+        .eq("id", deal.id)
+        .eq('account_id', accountId ?? '');
 
       if (error) {
         console.error("Erro ao excluir negócio:", error);
@@ -406,7 +410,7 @@ export function DealForm({
                     ))}
                   </select>
 
-                  {linkedConversation && (
+                  {FEATURES.inbox && linkedConversation && (
                     <Link
                       href="/inbox"
                       className="inline-flex w-fit items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/15"
@@ -496,7 +500,7 @@ export function DealForm({
                 </div>
               </section>
 
-              <div className="grid gap-2">
+              {FEATURES.team ? <div className="grid gap-2">
                 <Label htmlFor="deal-assigned-to">{t("assignedTo")}</Label>
                 <select
                   id="deal-assigned-to"
@@ -512,7 +516,7 @@ export function DealForm({
                     </option>
                   ))}
                 </select>
-              </div>
+              </div> : null}
 
               <div className="grid gap-2">
                 <Label htmlFor="deal-notes">{t("notes")}</Label>

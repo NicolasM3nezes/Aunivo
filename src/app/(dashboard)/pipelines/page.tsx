@@ -30,6 +30,7 @@ import { useCan } from "@/hooks/use-can";
 import { useAuth } from "@/hooks/use-auth";
 import { GatedButton } from "@/components/ui/gated-button";
 import { useTranslations } from "next-intl";
+import { FEATURES } from '@/config/features';
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -38,11 +39,12 @@ import { useTranslations } from "next-intl";
 
 // Spec-defined seed — name and color per the product spec.
 const SPEC_DEFAULT_STAGES = [
-  { name: "New Lead", color: "#3b82f6", position: 0 }, // blue
-  { name: "Qualified", color: "#eab308", position: 1 }, // yellow
-  { name: "Proposal Sent", color: "#f97316", position: 2 }, // orange
-  { name: "Negotiation", color: "#8b5cf6", position: 3 }, // purple
-  { name: "Won", color: "#22c55e", position: 4 }, // green
+  { name: "Novo contato", color: "#3b82f6", position: 0 },
+  { name: "Em atendimento", color: "#06b6d4", position: 1 },
+  { name: "Orçamento enviado", color: "#8b5cf6", position: 2 },
+  { name: "Negociação", color: "#f59e0b", position: 3 },
+  { name: "Fechado", color: "#22c55e", position: 4 },
+  { name: "Perdido", color: "#ef4444", position: 5 },
 ];
 
 export default function PipelinesPage() {
@@ -77,13 +79,14 @@ export default function PipelinesPage() {
     const { data, error } = await supabase
       .from("pipelines")
       .select("*")
+      .eq("account_id", accountId ?? '')
       .order("created_at");
     if (error) {
       console.error("Failed to load pipelines:", error.message);
       return [];
     }
     return data ?? [];
-  }, [supabase]);
+  }, [supabase, accountId]);
 
   const loadStages = useCallback(
     async (pipelineId: string) => {
@@ -103,10 +106,11 @@ export default function PipelinesPage() {
         .from("deals")
         .select("*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)")
         .eq("pipeline_id", pipelineId)
+        .eq("account_id", accountId ?? '')
         .order("created_at", { ascending: false });
       return (data ?? []) as Deal[];
     },
-    [supabase],
+    [supabase, accountId],
   );
 
   const seedDefaultPipeline = useCallback(async (): Promise<Pipeline | null> => {
@@ -216,20 +220,24 @@ export default function PipelinesPage() {
 
   const handleDealMoved = useCallback(
     async (dealId: string, newStageId: string) => {
-      // Optimistic update — board already animated; just persist.
+      const previousStageId = deals.find((deal) => deal.id === dealId)?.stage_id;
+      if (!previousStageId || !accountId || !stages.some((stage) => stage.id === newStageId)) return;
       setDeals((prev) =>
         prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d)),
       );
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("deals")
         .update({ stage_id: newStageId })
-        .eq("id", dealId);
-      if (error) {
+        .eq("id", dealId)
+        .eq("account_id", accountId)
+        .select("id")
+        .maybeSingle();
+      if (error || !updated) {
         toast.error(t("toastFailedMoveDeal"));
-        refreshDeals();
+        setDeals((prev) => prev.map((deal) => deal.id === dealId ? { ...deal, stage_id: previousStageId } : deal));
       }
     },
-    [supabase, refreshDeals, t],
+    [supabase, deals, accountId, stages, t],
   );
 
   const handleAddDeal = useCallback(
@@ -319,7 +327,7 @@ export default function PipelinesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           {/* Pipeline selector dropdown */}
-          <DropdownMenu>
+          {FEATURES.multiplePipelines ? <DropdownMenu>
             <DropdownMenuTrigger
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors data-[popup-open]:bg-muted"
             >
@@ -363,11 +371,11 @@ export default function PipelinesPage() {
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu> : <div className="flex items-center gap-2"><GitBranch className="size-5 text-primary"/><h1 className="text-xl font-semibold">{selectedPipeline?.name ?? 'Funil principal'}</h1></div>}
         </div>
 
         <div className="flex items-center gap-2">
-          <GatedButton
+          {FEATURES.multiplePipelines ? <GatedButton
             variant="outline"
             canAct={canEditSettings}
             gateReason="create pipelines"
@@ -376,7 +384,7 @@ export default function PipelinesPage() {
           >
             <Plus className="mr-1 h-4 w-4" />
             {t("addPipeline")}
-          </GatedButton>
+          </GatedButton> : null}
           <GatedButton
             canAct={canCreateDeals}
             gateReason="create deals"
@@ -424,7 +432,7 @@ export default function PipelinesPage() {
       )}
 
       {/* New Pipeline Dialog */}
-      <Dialog open={newPipelineOpen} onOpenChange={setNewPipelineOpen}>
+      {FEATURES.multiplePipelines ? <Dialog open={newPipelineOpen} onOpenChange={setNewPipelineOpen}>
         <DialogContent className="sm:max-w-sm bg-popover border-border">
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">{t("newPipeline")}</DialogTitle>
@@ -461,10 +469,10 @@ export default function PipelinesPage() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog> : null}
 
       {/* Pipeline Settings */}
-      {selectedPipeline && (
+      {FEATURES.multiplePipelines && selectedPipeline && (
         <PipelineSettings
           open={settingsOpen}
           onOpenChange={setSettingsOpen}

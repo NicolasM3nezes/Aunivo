@@ -7,6 +7,8 @@ describe('Aunivo V1 route guards', () => {
     expect(isV1DisabledPage('/automations/new')).toBe(true);
     expect(isV1DisabledApi('/api/whatsapp/config')).toBe(true);
     expect(isV1DisabledApi('/api/account/members/abc')).toBe(true);
+    expect(isV1DisabledPage('/join/invite-token')).toBe(true);
+    expect(isV1DisabledApi('/api/account/transfer-ownership')).toBe(true);
   });
   it('mantém o núcleo CRM disponível', () => {
     expect(isV1DisabledPage('/contacts')).toBe(false);
