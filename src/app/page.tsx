@@ -123,7 +123,7 @@ const steps = [
   {
     number: '01',
     title: 'Crie sua conta',
-    text: 'Solicite acesso e participe gratuitamente da validação.',
+    text: 'Crie sua conta, escolha o plano ideal e comece a organizar seus clientes.',
   },
   {
     number: '02',
@@ -160,7 +160,7 @@ const plans = [
       'Relatórios básicos',
     ],
     cta: PLAN_DISPLAY.free.cta,
-    href: '/programa-piloto',
+    href: '/planos',
     featured: false,
   },
   {
@@ -180,7 +180,7 @@ const plans = [
       'Base de conhecimento e relatórios avançados',
     ],
     cta: PLAN_DISPLAY.pro.cta,
-    href: '/programa-piloto',
+    href: '/planos',
     featured: true,
   },
   {
@@ -268,11 +268,11 @@ export default function HomePage() {
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Button
-                  render={<Link href="/programa-piloto" />}
+                  render={<Link href="/planos" />}
                   size="lg"
                   className="shadow-primary/20 h-12 rounded-xl px-6 shadow-lg"
                 >
-                  Conhecer o {PLAN_DISPLAY.free.name}
+                  Ver planos
                   <ArrowRight className="size-4" />
                 </Button>
 
@@ -640,12 +640,12 @@ export default function HomePage() {
             </p>
 
             <Button
-              render={<Link href="/programa-piloto" />}
+              render={<Link href="/planos" />}
               size="lg"
               variant="secondary"
               className="mt-8 h-12 rounded-xl px-6"
             >
-              {PLAN_DISPLAY.free.cta}
+              Ver planos e começar
               <ArrowRight className="size-4" />
             </Button>
           </div>

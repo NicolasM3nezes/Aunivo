@@ -37,7 +37,7 @@ export function LegalPage({ title, description, version, sections, children }: {
       </div>
       <footer className="border-border mt-12 border-t pt-6 text-sm text-muted-foreground">
         <p>Versão: {version} – Programa Piloto</p><p>Vigência: {LEGAL_CONTACT.effectiveDate}</p>
-        <p className="mt-3">Consulte também a <Link className="text-primary underline" href="/politica-de-privacidade">Política de Privacidade</Link>, a <Link className="text-primary underline" href="/politica-de-cookies">Política de Cookies</Link> e o <Link className="text-primary underline" href="/programa-piloto">Programa Piloto</Link>.</p>
+        <p className="mt-3">Consulte também a <Link className="text-primary underline" href="/politica-de-privacidade">Política de Privacidade</Link> e a <Link className="text-primary underline" href="/politica-de-cookies">Política de Cookies</Link>.</p>
       </footer>
     </article>
   );

@@ -13,7 +13,6 @@ const links = [
   ['Como funciona', '/#como-funciona'],
   ['Planos', '/#planos'],
   ['Perguntas frequentes', '/#faq'],
-  ['Programa piloto', '/programa-piloto'],
 ] as const;
 
 export function PublicHeader() {
@@ -91,10 +90,10 @@ export function PublicHeader() {
             </Button>
 
             <Button
-              render={<Link href="/programa-piloto" />}
+              render={<Link href="/planos" />}
               className="h-10 rounded-xl px-5 shadow-lg shadow-primary/15"
             >
-              Participar do piloto
+              Começar agora
               <ArrowRight className="size-4" />
             </Button>
           </div>
@@ -164,10 +163,10 @@ export function PublicHeader() {
             </Button>
 
             <Button
-              render={<Link href="/programa-piloto" onClick={closeMenu} />}
+              render={<Link href="/cadastro" onClick={closeMenu} />}
               className="h-11 w-full rounded-xl"
             >
-              Participar do piloto
+              Começar agora
               <ArrowRight className="size-4" />
             </Button>
           </div>

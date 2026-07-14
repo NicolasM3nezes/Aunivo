@@ -28,7 +28,7 @@ import { PLAN_DISPLAY } from '@/config/plans';
 export const metadata: Metadata = {
   title: 'Planos e preços — Aunivo',
   description:
-    'Conheça os valores planejados e participe gratuitamente do programa piloto do Aunivo.',
+    'Teste o Aunivo grátis e organize clientes, vendas e próximos retornos.',
   alternates: {
     canonical: '/planos',
   },
@@ -43,7 +43,7 @@ const plans = [
     price: PLAN_DISPLAY.free.price,
     priceSuffix: '',
     cta: PLAN_DISPLAY.free.cta,
-    href: '/programa-piloto',
+    href: '/checkout?plan=free',
     featured: false,
     icon: Sparkles,
     features: [
@@ -65,7 +65,7 @@ const plans = [
     price: PLAN_DISPLAY.pro.price,
     priceSuffix: '',
     cta: PLAN_DISPLAY.pro.cta,
-    href: '/programa-piloto',
+    href: '/checkout?plan=pro',
     featured: true,
     icon: Crown,
     features: [
@@ -197,7 +197,7 @@ export default function PlansPage() {
             </h1>
 
             <p className="text-muted-foreground mx-auto mt-6 max-w-2xl text-lg leading-8">
-              Valores planejados para o lançamento comercial. Durante o programa piloto não haverá cobrança.
+              Teste grátis por 14 dias e continue com o Aunivo Pro por R$ 39,90 por mês.
             </p>
 
             <div className="text-muted-foreground mt-8 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm">
@@ -530,7 +530,7 @@ export default function PlansPage() {
             </p>
 
             <Button
-              render={<Link href="/programa-piloto" />}
+              render={<Link href="/checkout?plan=free" />}
               size="lg"
               className="shadow-primary/20 mt-8 h-12 rounded-xl px-6 shadow-lg"
             >

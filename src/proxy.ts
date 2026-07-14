@@ -44,13 +44,6 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  if (request.nextUrl.pathname === '/checkout') {
-    const url = request.nextUrl.clone()
-    url.pathname = '/programa-piloto'
-    url.search = ''
-    return withRefreshedCookies(NextResponse.redirect(url))
-  }
-
   if (isV1DisabledApi(request.nextUrl.pathname)) {
     if (!user) {
       return withRefreshedCookies(NextResponse.json({ error: 'UNAUTHORIZED', message: 'Sua sessão expirou. Entre novamente.' }, { status: 401 }))
@@ -93,8 +86,8 @@ export async function proxy(request: NextRequest) {
     } else {
       const selectedPlan = request.nextUrl.searchParams.get('plan')
       if (selectedPlan === 'free' || selectedPlan === 'pro') {
-        url.pathname = '/programa-piloto'
-        url.search = ''
+        url.pathname = '/checkout'
+        url.search = `plan=${selectedPlan}`
       } else {
         url.pathname = '/dashboard'
         url.search = ''

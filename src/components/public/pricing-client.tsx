@@ -52,11 +52,6 @@ export function PricingClient() {
   }, []);
 
   async function checkout(planKey: Exclude<PlanKey, 'business'>) {
-    const pilotMode = true;
-    if (pilotMode) {
-      window.location.assign('/programa-piloto');
-      return;
-    }
     if (!authenticated) {
       window.location.assign(`/cadastro?plan=${planKey}&interval=monthly`);
       return;
@@ -219,7 +214,7 @@ export function PricingClient() {
                       {busy === key ? (
                         <Loader2 className="animate-spin" />
                       ) : (
-                        display.cta
+                        key === 'pro' && billing && !billing.trialEligible ? 'Assinar Pro' : display.cta
                       )}
                     </Button>
                   )}
