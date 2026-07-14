@@ -17,13 +17,13 @@ import { BILLING_PLANS } from '@/lib/billing/catalog';
 import { PLAN_DISPLAY } from '@/config/plans';
 import type {
   AccountEntitlements,
-  BillingRow,
+  BillingStateRow,
   PlanKey,
 } from '@/lib/billing/types';
 
 interface BillingState {
   entitlements: AccountEntitlements;
-  billing: BillingRow | null;
+  billing: BillingStateRow | null;
   canManage: boolean;
   trialEligible: boolean;
 }
@@ -103,9 +103,11 @@ export function PricingClient() {
   }
 
   const current = billing?.entitlements.access === 'restricted' ? undefined : billing?.entitlements.effectivePlan;
+  const isInternal = billing?.entitlements.effectiveAccess.isInternal;
+  const isPilot = billing?.entitlements.effectiveAccess.isPilot;
   return (
     <>
-      {billing &&
+      {billing && !isInternal &&
         ['past_due', 'unpaid', 'incomplete', 'canceled'].includes(
           billing.entitlements.status
         ) && (
@@ -170,11 +172,11 @@ export function PricingClient() {
                   </PlanBenefit>
                 </ul>
                 <div className="mt-7">
-                  {isCurrent ? (
+                  {isCurrent && !isPilot ? (
                     <Button className="w-full" disabled>
                       Plano atual
                     </Button>
-                  ) : key === 'business' ? (
+                  ) : isInternal ? null : key === 'business' ? (
                     salesUrl ? (
                       <Button
                         render={

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,15 +16,16 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { BILLING_PLANS } from '@/lib/billing/catalog';
 import { PLAN_DISPLAY } from '@/config/plans';
+import { pilotPresentationState } from '@/lib/billing/presentation';
 import type {
   AccountEntitlements,
-  BillingRow,
+  BillingStateRow,
   PlanKey,
 } from '@/lib/billing/types';
 
 interface State {
   entitlements: AccountEntitlements;
-  billing: BillingRow | null;
+  billing: BillingStateRow | null;
   canManage: boolean;
   trialEligible: boolean;
 }
@@ -94,6 +96,14 @@ export function BillingSettings() {
     );
   const current = state.entitlements.effectivePlan;
   const hasAccess = state.entitlements.access !== 'restricted';
+  const access = state.entitlements.effectiveAccess;
+  const isInternal = access.isInternal && access.isActive;
+  const pilotState = pilotPresentationState(access);
+  const isPilot = pilotState !== 'none';
+  const pilotActive = pilotState === 'active' || pilotState === 'ending_soon';
+  const pilotExpires = access.expiresAt
+    ? new Intl.DateTimeFormat('pt-BR').format(new Date(access.expiresAt))
+    : null;
   return (
     <div className="space-y-6">
       <Card>
@@ -103,14 +113,44 @@ export function BillingSettings() {
               <CardTitle>{t('title')}</CardTitle>
               <CardDescription>{t('description')}</CardDescription>
             </div>
-            <Badge>{hasAccess ? PLAN_DISPLAY[current].name : 'Sem assinatura'}</Badge>
+            <Badge>
+              {pilotActive
+                ? t('pilot.title', { plan: PLAN_DISPLAY[access.plan].name })
+                : isPilot
+                  ? t('pilot.expiredBadge')
+                : isInternal
+                ? t('internal.plan', { plan: PLAN_DISPLAY[current].name })
+                : hasAccess
+                  ? PLAN_DISPLAY[current].name
+                  : 'Sem assinatura'}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3 text-sm">
-          <span>
-            {t('status')}: {t(`statuses.${state.entitlements.status}`)}
-          </span>
-          {state.billing?.current_period_end && (
+          {pilotActive ? (
+            <div className="basis-full space-y-2">
+              <p>{t('pilot.description', { plan: PLAN_DISPLAY[access.plan].name })}</p>
+              {pilotExpires && <p>{t('pilot.endsAt', { date: pilotExpires })}</p>}
+              <p>{t('pilot.daysRemaining', { days: access.daysRemaining ?? 0 })}</p>
+              <p>{t('pilot.noCharge')}</p>
+              {pilotState === 'ending_soon' && (
+                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 font-medium text-amber-800 dark:text-amber-200">
+                  {t('pilot.endingSoon', { days: access.daysRemaining ?? 0 })}
+                </p>
+              )}
+            </div>
+          ) : isPilot ? (
+            <p className="basis-full rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-200">
+              {t('pilot.expired')}
+            </p>
+          ) : isInternal ? (
+            <span>{t('internal.noCharge')}</span>
+          ) : (
+            <span>
+              {t('status')}: {t(`statuses.${state.entitlements.status}`)}
+            </span>
+          )}
+          {!isInternal && !isPilot && state.billing?.current_period_end && (
             <span>
               {t('renewal')}:{' '}
               {new Intl.DateTimeFormat('pt-BR').format(
@@ -118,20 +158,30 @@ export function BillingSettings() {
               )}
             </span>
           )}
-          {state.billing?.trial_end && state.entitlements.status === 'trialing' && (
+          {!isInternal && !isPilot && state.billing?.trial_end && state.entitlements.status === 'trialing' && (
             <span>Fim do teste: {new Intl.DateTimeFormat('pt-BR').format(new Date(state.billing.trial_end))}</span>
           )}
-          {state.billing?.cancel_at_period_end && (
+          {!isInternal && !isPilot && state.billing?.cancel_at_period_end && (
             <span className="text-amber-600 dark:text-amber-300">Cancelamento agendado para o fim do período.</span>
           )}
-          {state.entitlements.access === 'grace' && state.entitlements.gracePeriodEndsAt && (
+          {!isInternal && !isPilot && state.entitlements.access === 'grace' && state.entitlements.gracePeriodEndsAt && (
             <span className="text-amber-600 dark:text-amber-300">Carência até {new Intl.DateTimeFormat('pt-BR').format(new Date(state.entitlements.gracePeriodEndsAt))}.</span>
           )}
-          {state.billing?.last_invoice_paid_at && (
+          {!isInternal && !isPilot && state.billing?.last_invoice_paid_at && (
             <span>Último pagamento: {new Intl.DateTimeFormat('pt-BR').format(new Date(state.billing.last_invoice_paid_at))}</span>
           )}
           <div className="basis-full" />
-          {state.canManage && state.billing?.provider_customer_id && (
+          {isPilot && state.canManage && (
+            <Button onClick={() => void open('/api/billing/checkout', { planKey: 'pro', interval: 'monthly' })} disabled={!!busy}>
+              {t('pilot.subscribePro')}
+            </Button>
+          )}
+          {isPilot && (
+            <Button variant="outline" render={<Link href="/planos" />}>
+              {t('pilot.viewPlans')}
+            </Button>
+          )}
+          {!isInternal && !isPilot && state.canManage && state.billing?.provider_customer_id && (
             <Button
               onClick={() => void open('/api/billing/portal')}
               disabled={!!busy}
@@ -139,7 +189,7 @@ export function BillingSettings() {
               {t('manage')}
             </Button>
           )}
-          {state.canManage && state.billing?.provider_customer_id && (
+          {!isInternal && !isPilot && state.canManage && state.billing?.provider_customer_id && (
             <Button
               variant="outline"
               onClick={() => void synchronize()}
@@ -186,7 +236,7 @@ export function BillingSettings() {
                     })}
                   </li>
                 </ul>
-                {key === 'business' && key !== current ? (
+                {isInternal && key !== current ? null : key === 'business' && key !== current ? (
                   salesUrl ? (
                     <Button
                       render={

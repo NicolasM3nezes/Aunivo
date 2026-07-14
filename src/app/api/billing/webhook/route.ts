@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { stripeServer, stripeWebhookSecret } from '@/lib/billing/stripe/server'
 import { stripeAccountId, syncStripeSubscription } from '@/lib/billing/stripe/sync'
 import { notifyBillingOwner } from '@/lib/billing/notifications'
+import { convertActivePilotGrant } from '@/lib/billing/access'
 
 export const runtime = 'nodejs'
 
@@ -57,6 +58,12 @@ export async function POST(request: Request) {
         const accountId = metadataAccount ?? customerAccount
         if (!accountId || (metadataAccount && customerAccount && metadataAccount !== customerAccount)) throw new Error('Stripe customer/account association is invalid')
         await syncStripeSubscription(db, accountId, subscription, event.created)
+        if (
+          ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'invoice.paid'].includes(event.type) &&
+          (subscription.status === 'active' || subscription.status === 'trialing')
+        ) {
+          await convertActivePilotGrant(db, accountId, new Date(event.created * 1000).toISOString())
+        }
         if (event.type.startsWith('invoice.')) {
           const invoice = event.data.object as Stripe.Invoice
           const invoicePatch: Record<string, string | null> = { last_invoice_status: invoice.status ?? event.type }

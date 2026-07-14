@@ -1764,6 +1764,22 @@
     "intervalLabel": "Intervalo de cobrança",
     "subscribe": "Assinar",
     "current": "Plano atual",
+    "internal": {
+      "plan": "Plano {plan} — Conta interna",
+      "noCharge": "Nenhuma cobrança será realizada"
+    },
+    "pilot": {
+      "title": "Acesso Piloto {plan}",
+      "description": "Você está usando todos os recursos do Aunivo {plan} gratuitamente.",
+      "endsAt": "Seu acesso termina em {date}.",
+      "daysRemaining": "Restam {days} dias.",
+      "noCharge": "Nenhuma cobrança será realizada automaticamente.",
+      "endingSoon": "Seu acesso piloto termina em {days} dias. Escolha um plano para continuar usando o Aunivo sem interrupção.",
+      "expired": "Seu acesso piloto terminou. Seus dados continuam seguros. Escolha um plano para voltar a usar todos os recursos.",
+      "expiredBadge": "Piloto encerrado",
+      "subscribePro": "Assinar Pro",
+      "viewPlans": "Ver planos"
+    },
     "included": "Incluído",
     "unlimited": "Ilimitado",
     "ownerOnly": "Somente o proprietário da conta pode gerenciar a cobrança. Fale com o proprietário para fazer alterações.",
@@ -1803,6 +1819,8 @@
       "canceling": "Sua assinatura está programada para ser cancelada ao fim do período.",
       "action": "Revisar cobrança",
       "askOwner": "Peça ao proprietário da conta para revisar a cobrança."
+      ,"pilot": "Acesso Pro de avaliação — {days} dias restantes."
+      ,"plansAction": "Ver planos"
     },
     "errors": {
       "load": "Não foi possível carregar a cobrança.",

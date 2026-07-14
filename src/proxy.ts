@@ -117,12 +117,9 @@ export async function proxy(request: NextRequest) {
 
   if (user && ((isProtectedPage && !isBillingRecoveryPage) || isGatedApi)) {
     const { data: profile } = await supabase.from('profiles').select('account_id').eq('user_id', user.id).maybeSingle()
-    const { data: billing } = profile?.account_id
-      ? await supabase.from('account_billing').select('subscription_status,grace_period_ends_at').eq('account_id', profile.account_id).maybeSingle()
+    const { data: valid } = profile?.account_id
+      ? await supabase.rpc('current_account_has_billing_access', { target_account_id: profile.account_id })
       : { data: null }
-    const valid = billing?.subscription_status === 'active' ||
-      billing?.subscription_status === 'trialing' ||
-      (billing?.subscription_status === 'past_due' && !!billing.grace_period_ends_at && new Date(billing.grace_period_ends_at).getTime() > Date.now())
 
     if (!valid) {
       if (isGatedApi) {

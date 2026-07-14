@@ -1766,6 +1766,22 @@
     "intervalLabel": "Billing interval",
     "subscribe": "Subscribe",
     "current": "Current plan",
+    "internal": {
+      "plan": "{plan} plan — Internal account",
+      "noCharge": "No charges will be made"
+    },
+    "pilot": {
+      "title": "{plan} Pilot Access",
+      "description": "You are using all Aunivo {plan} features for free.",
+      "endsAt": "Your access ends on {date}.",
+      "daysRemaining": "{days} days remaining.",
+      "noCharge": "No charges will be made automatically.",
+      "endingSoon": "Your pilot access ends in {days} days. Choose a plan to keep using Aunivo without interruption.",
+      "expired": "Your pilot access has ended. Your data remains safe. Choose a plan to regain all features.",
+      "expiredBadge": "Pilot ended",
+      "subscribePro": "Subscribe to Pro",
+      "viewPlans": "View plans"
+    },
     "included": "Included",
     "unlimited": "Unlimited",
     "ownerOnly": "Only the account owner can manage billing. Ask the owner to make changes.",
@@ -1805,6 +1821,8 @@
       "canceling": "Your subscription is scheduled to cancel at the end of the billing period.",
       "action": "Review billing",
       "askOwner": "Ask the account owner to review billing."
+      ,"pilot": "Pro evaluation access — {days} days remaining."
+      ,"plansAction": "View plans"
     },
     "errors": {
       "load": "Could not load billing.",

@@ -33,6 +33,12 @@ vi.mock("@supabase/ssr", () => ({
         return { data: { user: mockUser } };
       },
     },
+    rpc: async () => ({
+      data: mockSubscription?.subscription_status === 'active' ||
+        mockSubscription?.subscription_status === 'trialing' ||
+        (mockSubscription?.subscription_status === 'past_due' && !!mockSubscription.grace_period_ends_at && new Date(mockSubscription.grace_period_ends_at).getTime() > Date.now()),
+      error: null,
+    }),
     from: (table: string) => {
       const builder = {
         select: () => builder,

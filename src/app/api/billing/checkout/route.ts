@@ -10,6 +10,7 @@ import {
   subscriptionBlocksCheckout,
 } from '@/lib/billing/checkout-rules'
 import { billingErrorResponse } from '@/lib/billing/http'
+import { getEffectiveAccountAccess, hasPilotGrantHistory } from '@/lib/billing/access'
 import {
   appUrl,
   stripeServer,
@@ -77,6 +78,18 @@ export async function POST(request: Request) {
     if (billingError) {
       throw new Error(
         `Não foi possível carregar os dados de cobrança: ${billingError.message}`,
+      )
+    }
+
+    const [effectiveAccess, pilotHistory] = await Promise.all([
+      getEffectiveAccountAccess(ctx.accountId, db),
+      hasPilotGrantHistory(ctx.accountId, db),
+    ])
+
+    if (effectiveAccess.isInternal && effectiveAccess.isActive) {
+      return NextResponse.json(
+        { error: 'Esta conta possui acesso interno e não realiza cobrança pelo Stripe.' },
+        { status: 409 },
       )
     }
 
@@ -211,6 +224,7 @@ export async function POST(request: Request) {
     const useTrial = shouldApplyProTrial(
       body.planKey,
       billing.trial_used_at,
+      pilotHistory,
     )
 
     const priceId = priceIdFor(

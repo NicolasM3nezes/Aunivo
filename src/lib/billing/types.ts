@@ -1,6 +1,10 @@
 import type { InternalPlan } from './plan-permissions'
 
 export type PlanKey = InternalPlan
+export type AccessOverridePlan = 'basic' | 'pro' | 'business'
+export type BillingAccessSource = 'internal' | 'stripe' | 'pilot' | 'none'
+export type AccessGrantType = 'pilot' | 'internal'
+export type AccessGrantStatus = 'active' | 'revoked' | 'expired' | 'converted'
 export type BillingInterval = 'monthly' | 'yearly'
 export type SubscriptionStatus =
   | 'free' | 'trialing' | 'active' | 'past_due' | 'unpaid'
@@ -47,6 +51,39 @@ export interface BillingRow {
   last_payment_failed_at: string | null
   last_provider_event_created_at: string | null
   last_synced_at: string | null
+  access_override_plan: AccessOverridePlan | null
+  access_override_expires_at: string | null
+  access_override_reason: string | null
+}
+
+export interface AccessGrantRow {
+  id: string
+  account_id: string
+  grant_type: AccessGrantType
+  plan_key: AccessOverridePlan
+  status: AccessGrantStatus
+  starts_at: string
+  expires_at: string | null
+  reason: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  revoked_at: string | null
+  converted_at: string | null
+}
+
+export interface EffectiveAccountAccess {
+  plan: PlanKey
+  source: BillingAccessSource
+  status: SubscriptionStatus | AccessGrantStatus | 'none'
+  startsAt: string | null
+  expiresAt: string | null
+  daysRemaining: number | null
+  isActive: boolean
+  isPilot: boolean
+  isInternal: boolean
+  hasStripeSubscription: boolean
+  access: 'full' | 'grace' | 'restricted'
 }
 
 export interface AccountEntitlements {
@@ -55,7 +92,29 @@ export interface AccountEntitlements {
   effectivePlan: PlanKey
   status: SubscriptionStatus
   access: 'full' | 'grace' | 'restricted'
+  source: BillingAccessSource
+  effectiveAccess: EffectiveAccountAccess
   gracePeriodEndsAt: string | null
   limits: Record<BillingLimit, number | null>
   features: Record<BillingFeature, boolean>
 }
+
+export type BillingStateRow = Pick<
+  BillingRow,
+  | 'plan_key'
+  | 'billing_interval'
+  | 'subscription_status'
+  | 'current_period_start'
+  | 'current_period_end'
+  | 'trial_start'
+  | 'trial_end'
+  | 'trial_used_at'
+  | 'cancel_at_period_end'
+  | 'canceled_at'
+  | 'grace_period_ends_at'
+  | 'last_invoice_status'
+  | 'last_invoice_paid_at'
+  | 'last_payment_failed_at'
+  | 'provider_customer_id'
+  | 'provider_subscription_id'
+>

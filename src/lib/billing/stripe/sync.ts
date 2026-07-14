@@ -28,12 +28,16 @@ export function mapStripeSubscription(subscription: Stripe.Subscription, eventCr
 
 export async function syncStripeSubscription(db: SupabaseClient, accountId: string, subscription: Stripe.Subscription, eventCreated?: number) {
   const patch = mapStripeSubscription(subscription, eventCreated)
-  const { data: existing, error: readError } = await db.from('account_billing').select('provider_customer_id,last_provider_event_created_at,grace_period_ends_at,subscription_status').eq('account_id', accountId).maybeSingle()
+  const { data: existing, error: readError } = await db.from('account_billing').select('account_id,provider_customer_id,last_provider_event_created_at,grace_period_ends_at,subscription_status').eq('account_id', accountId).maybeSingle()
   if (readError) throw new Error(readError.message)
   if (existing?.provider_customer_id && existing.provider_customer_id !== patch.provider_customer_id) throw new Error('Stripe Customer is already linked to another billing record')
   if (eventCreated && existing?.last_provider_event_created_at && new Date(existing.last_provider_event_created_at).getTime() > eventCreated * 1000) return false
   if (patch.subscription_status === 'past_due' && existing?.subscription_status === 'past_due' && existing.grace_period_ends_at) patch.grace_period_ends_at = existing.grace_period_ends_at
-  const { error } = await db.from('account_billing').upsert({ account_id: accountId, ...patch }, { onConflict: 'account_id' })
+  // Update only Stripe-owned columns. In particular, webhook synchronization
+  // must never write or clear the independent administrative override fields.
+  const { error } = existing
+    ? await db.from('account_billing').update(patch).eq('account_id', accountId)
+    : await db.from('account_billing').insert({ account_id: accountId, ...patch })
   if (error) throw new Error(error.message)
   return true
 }

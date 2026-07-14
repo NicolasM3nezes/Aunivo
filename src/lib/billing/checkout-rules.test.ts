@@ -13,6 +13,9 @@ describe('Stripe checkout rules', () => {
     expect(shouldApplyProTrial('pro', null)).toBe(true)
     expect(shouldApplyProTrial('pro', '2026-07-13T12:00:00Z')).toBe(false)
   })
+  it('never stacks the Pro trial after pilot access', () => {
+    expect(shouldApplyProTrial('pro', null, true)).toBe(false)
+  })
 
   it.each(['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'])('blocks duplicate checkout for %s', (status) => {
     expect(subscriptionBlocksCheckout(status)).toBe(true)

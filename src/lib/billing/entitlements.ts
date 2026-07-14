@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { BILLING_PLANS } from './catalog'
-import type { AccountEntitlements, BillingFeature, BillingLimit, BillingRow, PlanKey } from './types'
+import { getEffectiveAccountAccess, resolveEffectiveAccountAccess } from './access'
+import type { AccessGrantRow, AccountEntitlements, BillingFeature, BillingLimit, BillingRow, PlanKey } from './types'
 
 export class BillingAccessError extends Error {
   constructor(public readonly code: 'feature_unavailable' | 'limit_reached', public readonly detail: Record<string, unknown>) {
@@ -10,11 +11,13 @@ export class BillingAccessError extends Error {
   }
 }
 
-export function effectivePlanFor(row: BillingRow | null, now = new Date()): { plan: PlanKey; access: AccountEntitlements['access'] } {
-  if (!row) return { plan: 'free', access: 'restricted' }
-  if (row.subscription_status === 'active' || row.subscription_status === 'trialing') return { plan: row.plan_key, access: 'full' }
-  if (row.subscription_status === 'past_due' && row.grace_period_ends_at && new Date(row.grace_period_ends_at) > now) return { plan: row.plan_key, access: 'grace' }
-  return { plan: 'free', access: 'restricted' }
+export function hasActiveAccessOverride(row: Pick<BillingRow, 'access_override_plan' | 'access_override_expires_at'> | null, now = new Date()): boolean {
+  return Boolean(row?.access_override_plan && (!row.access_override_expires_at || new Date(row.access_override_expires_at) > now))
+}
+
+export function effectivePlanFor(row: BillingRow | null, now = new Date(), grants: AccessGrantRow[] = []): { plan: PlanKey; access: AccountEntitlements['access']; source: AccountEntitlements['source'] } {
+  const effective = resolveEffectiveAccountAccess(row, grants, now)
+  return { plan: effective.isActive ? effective.plan : 'free', access: effective.access, source: effective.source }
 }
 
 type SupabaseErrorLike = { code?: string; message?: string }
@@ -27,24 +30,26 @@ export function isMissingBillingSchemaError(error: SupabaseErrorLike): boolean {
 
 function basicEntitlements(accountId: string): AccountEntitlements {
   const definition = BILLING_PLANS.free
-  return { accountId, configuredPlan: 'free', effectivePlan: 'free', status: 'free', access: 'restricted', gracePeriodEndsAt: null, limits: definition.limits, features: definition.features }
+  const effectiveAccess = resolveEffectiveAccountAccess(null, [])
+  return { accountId, configuredPlan: 'free', effectivePlan: 'free', status: 'free', access: 'restricted', source: 'none', effectiveAccess, gracePeriodEndsAt: null, limits: definition.limits, features: definition.features }
 }
 
 export async function getAccountEntitlements(accountId: string, db: SupabaseClient = supabaseAdmin()): Promise<AccountEntitlements> {
-  const { data, error } = await db.from('account_billing').select('*').eq('account_id', accountId).maybeSingle()
-  if (error) {
+  let effectiveAccess
+  try {
+    effectiveAccess = await getEffectiveAccountAccess(accountId, db)
+  } catch (error) {
     // Fail closed for installations that have not applied billing yet:
     // Basic grants no paid feature and retains every Basic limit.
-    if (isMissingBillingSchemaError(error)) {
+    if (isMissingBillingSchemaError(error as SupabaseErrorLike)) {
       console.warn('[billing] account_billing unavailable; applying Basic entitlements')
       return basicEntitlements(accountId)
     }
-    throw new Error(`Could not load billing: ${error.message}`)
+    throw error
   }
-  const row = data as BillingRow | null
-  const effective = effectivePlanFor(row)
-  const definition = BILLING_PLANS[effective.plan]
-  return { accountId, configuredPlan: row?.plan_key ?? 'free', effectivePlan: effective.plan, status: row?.subscription_status ?? 'free', access: effective.access, gracePeriodEndsAt: row?.grace_period_ends_at ?? null, limits: definition.limits, features: definition.features }
+  const plan = effectiveAccess.isActive ? effectiveAccess.plan : 'free'
+  const definition = BILLING_PLANS[plan]
+  return { accountId, configuredPlan: plan, effectivePlan: plan, status: effectiveAccess.source === 'stripe' ? effectiveAccess.status as AccountEntitlements['status'] : 'free', access: effectiveAccess.access, source: effectiveAccess.source, effectiveAccess, gracePeriodEndsAt: effectiveAccess.access === 'grace' ? effectiveAccess.expiresAt : null, limits: definition.limits, features: definition.features }
 }
 
 export async function assertFeature(accountId: string, feature: BillingFeature, db?: SupabaseClient) {
