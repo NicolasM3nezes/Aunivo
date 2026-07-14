@@ -43,6 +43,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { normalizeError } from '@/lib/errors/normalize-error';
 import { formatCurrencyDetailed } from '@/lib/currency';
+import { getSourceColor } from '@/lib/reports/source-colors';
 
 import { MetricCard } from '@/components/dashboard/metric-card';
 import {
@@ -119,6 +120,44 @@ type StageOutcomeRow = {
   is_won: boolean | null;
   is_lost: boolean | null;
 };
+
+type SourceChartItem = {
+  name: string;
+  value: number;
+  color: string;
+};
+
+interface SourceTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload: SourceChartItem }>;
+}
+
+function formatContactCount(value: number) {
+  return `${integer.format(value)} ${value === 1 ? 'contato' : 'contatos'}`;
+}
+
+function SourceTooltip({ active, payload }: SourceTooltipProps) {
+  const item = payload?.[0]?.payload;
+  if (!active || !item) return null;
+
+  return (
+    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-lg">
+      <div className="flex items-center gap-2">
+        <span
+          className="size-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: item.color }}
+          aria-hidden="true"
+        />
+        <p className="text-sm font-semibold text-popover-foreground">
+          {item.name}
+        </p>
+      </div>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {formatContactCount(item.value)}
+      </p>
+    </div>
+  );
+}
 
 export default function ReportsPage() {
   const {
@@ -210,7 +249,7 @@ export default function ReportsPage() {
       let dealsQuery = db
         .from('deals')
         .select(
-          'status,value,stage_id,pipeline_id,created_at,updated_at',
+          'status,value,stage_id,pipeline_id,contact_id,created_at,updated_at',
         )
         .eq('account_id', accountId);
 
@@ -319,6 +358,7 @@ export default function ReportsPage() {
       const contacts = (
         contactsResult.data ?? []
       ).map((row) => ({
+        id: row.id,
         created_at: row.created_at,
         lead_source:
           crmById.get(row.id)?.lead_source ?? null,
@@ -358,10 +398,18 @@ export default function ReportsPage() {
         };
       });
 
+      const reportDeals = (dealsResult.data ?? []) as ReportDeal[];
+      const selectedContactIds = selectedPipelineId
+        ? new Set(reportDeals.map((deal) => deal.contact_id).filter(Boolean))
+        : null;
+      const reportContacts = selectedContactIds
+        ? contacts.filter((contact) => selectedContactIds.has(contact.id))
+        : contacts;
+
       setReport(
         buildReport(
-          contacts as ReportContact[],
-          (dealsResult.data ?? []) as ReportDeal[],
+          reportContacts as ReportContact[],
+          reportDeals,
           reportStages as ReportStage[],
           selectedPipelines as ReportPipeline[],
           period,
@@ -427,7 +475,7 @@ export default function ReportsPage() {
         0,
       );
 
-    return otherValue > 0
+    const groupedSources = otherValue > 0
       ? [
           ...topSources,
           {
@@ -436,7 +484,21 @@ export default function ReportsPage() {
           },
         ]
       : topSources;
+
+    return groupedSources.map((source) => ({
+      ...source,
+      color: getSourceColor(source.name),
+    }));
   }, [report]);
+
+  const sourceBarData = useMemo(
+    () =>
+      (report?.sources.slice(0, 8) ?? []).map((source) => ({
+        ...source,
+        color: getSourceColor(source.name),
+      })),
+    [report],
+  );
 
   const cards = report
     ? [
@@ -848,7 +910,7 @@ export default function ReportsPage() {
                     height={330}
                   >
                     <BarChart
-                      data={report.sources.slice(0, 8)}
+                      data={sourceBarData}
                       layout="vertical"
                       margin={{
                         top: 8,
@@ -890,6 +952,10 @@ export default function ReportsPage() {
 
                       <Tooltip
                         contentStyle={tooltipStyle}
+                        cursor={{
+                          fill: 'var(--muted)',
+                          opacity: 0.15,
+                        }}
                         formatter={(value) => [
                           integer.format(
                             Number(value),
@@ -901,10 +967,16 @@ export default function ReportsPage() {
                       <Bar
                         dataKey="value"
                         name="Contatos"
-                        fill="var(--chart-3)"
                         radius={[0, 7, 7, 0]}
                         maxBarSize={36}
-                      />
+                      >
+                        {sourceBarData.map((source) => (
+                          <Cell
+                            key={source.name}
+                            fill={source.color}
+                          />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -1177,10 +1249,7 @@ function SourceDistribution({
   data,
   report,
 }: {
-  data: {
-    name: string;
-    value: number;
-  }[];
+  data: SourceChartItem[];
   report: ReportData;
 }) {
   if (!data.some((item) => item.value > 0)) {
@@ -1203,23 +1272,20 @@ function SourceDistribution({
             innerRadius={54}
             outerRadius={82}
             paddingAngle={3}
+            strokeWidth={2}
+            stroke="var(--background)"
+            aria-label="Distribuição de contatos por origem"
           >
-            {data.map((item, index) => (
+            {data.map((item) => (
               <Cell
                 key={item.name}
-                fill={`var(--chart-${
-                  (index % 5) + 1
-                })`}
+                fill={item.color}
               />
             ))}
           </Pie>
 
           <Tooltip
-            contentStyle={tooltipStyle}
-            formatter={(value) => [
-              integer.format(Number(value)),
-              'Contatos',
-            ]}
+            content={<SourceTooltip />}
           />
         </PieChart>
       </ResponsiveContainer>
@@ -1233,9 +1299,7 @@ function SourceDistribution({
           }
           subtitle={
             report.sourceSummary.topName
-              ? `${integer.format(
-                  report.sourceSummary.topValue,
-                )} contatos`
+              ? formatContactCount(report.sourceSummary.topValue)
               : 'Sem dados'
           }
         />

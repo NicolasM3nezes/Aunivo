@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildReport } from './analytics';
+import { buildReport, normalizeSourceKey, sourceDisplayName } from './analytics';
 
 describe('buildReport', () => {
   it('calcula conversão, ticket e isolamento temporal sem NaN', () => {
@@ -29,5 +29,42 @@ describe('buildReport', () => {
     expect(report.conversion).toBe(0);
     expect(report.average).toBe(0);
     expect(report.results.every((item) => item.value === 0)).toBe(true);
+  });
+
+  it('agrupa origens conhecidas ignorando espaços e capitalização', () => {
+    const now = new Date('2026-07-12T12:00:00Z');
+    const contacts = ['whatsapp', 'WhatsApp', ' WHATSAPP ', 'Instagram', 'indicação', null, '   '].map((lead_source) => ({
+      created_at: '2026-07-12T10:00:00Z', lead_source, is_active: true,
+    }));
+    const report = buildReport(contacts, [], [], [], '7', now);
+    expect(report.sources).toEqual([
+      { name: 'WhatsApp', value: 3 },
+      { name: 'Não informado', value: 2 },
+      { name: 'Instagram', value: 1 },
+      { name: 'Indicação', value: 1 },
+    ]);
+    expect(report.sourceSummary).toEqual({ total: 7, informed: 5, uninformed: 2, coverage: 5 / 7, topName: 'WhatsApp', topValue: 3 });
+  });
+
+  it('preserva origem personalizada e não escolhe Não informado como principal', () => {
+    const now = new Date('2026-07-12T12:00:00Z');
+    const contacts = [null, '', '  ', 'Feira local'].map((lead_source) => ({
+      created_at: '2026-07-12T10:00:00Z', lead_source, is_active: true,
+    }));
+    const report = buildReport(contacts, [], [], [], '7', now);
+    expect(report.sourceSummary.topName).toBe('Feira local');
+    expect(report.sourceSummary.topValue).toBe(1);
+  });
+
+  it('mantém resumo zerado quando não há contatos', () => {
+    const report = buildReport([], [], [], [], 'all', new Date('2026-07-12T12:00:00Z'));
+    expect(report.sources).toEqual([]);
+    expect(report.sourceSummary).toEqual({ total: 0, informed: 0, uninformed: 0, coverage: 0, topName: null, topValue: 0 });
+  });
+
+  it('normaliza nomes conhecidos e valores vazios', () => {
+    expect(normalizeSourceKey(' WHATSAPP ')).toBe('whatsapp');
+    expect(sourceDisplayName(' WHATSAPP ')).toBe('WhatsApp');
+    expect(sourceDisplayName('  ')).toBe('Não informado');
   });
 });

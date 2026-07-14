@@ -13,6 +13,7 @@ export type ReportDeal = {
   pipeline_id: string;
   created_at: string;
   updated_at: string | null;
+  contact_id?: string;
 };
 
 export type ReportStage = {
@@ -86,6 +87,27 @@ export type ReportData = {
 };
 
 const DAY = 86_400_000;
+const UNINFORMED_SOURCE = 'Não informado';
+
+const KNOWN_SOURCE_LABELS: Record<string, string> = {
+  whatsapp: 'WhatsApp',
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  google: 'Google',
+  indicação: 'Indicação',
+  site: 'Site',
+  outro: 'Outro',
+};
+
+export function normalizeSourceKey(source: string | null | undefined) {
+  return source?.trim().toLocaleLowerCase('pt-BR') || UNINFORMED_SOURCE;
+}
+
+export function sourceDisplayName(source: string | null | undefined) {
+  const trimmed = source?.trim();
+  if (!trimmed) return UNINFORMED_SOURCE;
+  return KNOWN_SOURCE_LABELS[normalizeSourceKey(trimmed)] ?? trimmed;
+}
 
 export function getPeriodStart(
   period: ReportPeriod,
@@ -349,24 +371,22 @@ export function buildReport(
     0,
   );
 
-  const sourceCounts = new Map<string, number>();
+  const sourceGroups = new Map<string, { name: string; value: number }>();
 
   for (const contact of periodContacts) {
-    const source =
-      contact.lead_source?.trim() || 'Não informado';
-
-    sourceCounts.set(
-      source,
-      (sourceCounts.get(source) ?? 0) + 1,
-    );
+    const key = normalizeSourceKey(contact.lead_source);
+    const current = sourceGroups.get(key);
+    sourceGroups.set(key, {
+      name: current?.name ?? sourceDisplayName(contact.lead_source),
+      value: (current?.value ?? 0) + 1,
+    });
   }
 
-  const sources = [...sourceCounts]
-    .map(([name, value]) => ({ name, value }))
+  const sources = [...sourceGroups.values()]
     .sort((first, second) => second.value - first.value);
 
   const uninformed =
-    sourceCounts.get('Não informado') ?? 0;
+    sourceGroups.get(UNINFORMED_SOURCE)?.value ?? 0;
 
   const informed = Math.max(
     0,
@@ -374,7 +394,7 @@ export function buildReport(
   );
 
   const topSource =
-    sources.find((source) => source.name !== 'Não informado') ??
+    sources.find((source) => source.name !== UNINFORMED_SOURCE) ??
     null;
 
   const hasMultiplePipelines =
