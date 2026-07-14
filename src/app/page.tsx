@@ -123,7 +123,7 @@ const steps = [
   {
     number: '01',
     title: 'Crie sua conta',
-    text: 'Configure sua empresa e comece seu teste grátis.',
+    text: 'Solicite acesso e participe gratuitamente da validação.',
   },
   {
     number: '02',
@@ -160,7 +160,7 @@ const plans = [
       'Relatórios básicos',
     ],
     cta: PLAN_DISPLAY.free.cta,
-    href: '/checkout?plan=free',
+    href: '/programa-piloto',
     featured: false,
   },
   {
@@ -180,7 +180,7 @@ const plans = [
       'Base de conhecimento e relatórios avançados',
     ],
     cta: PLAN_DISPLAY.pro.cta,
-    href: '/checkout?plan=pro',
+    href: '/programa-piloto',
     featured: true,
   },
   {
@@ -268,7 +268,7 @@ export default function HomePage() {
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Button
-                  render={<Link href="/checkout?plan=free" />}
+                  render={<Link href="/programa-piloto" />}
                   size="lg"
                   className="shadow-primary/20 h-12 rounded-xl px-6 shadow-lg"
                 >
@@ -640,7 +640,7 @@ export default function HomePage() {
             </p>
 
             <Button
-              render={<Link href="/checkout?plan=free" />}
+              render={<Link href="/programa-piloto" />}
               size="lg"
               variant="secondary"
               className="mt-8 h-12 rounded-xl px-6"

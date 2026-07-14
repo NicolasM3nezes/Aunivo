@@ -22,6 +22,8 @@ import {
 } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
+  const pilotMode = true;
+  if (pilotMode) return NextResponse.json({ error: 'Durante o programa piloto não há checkout ou cobrança. Solicite acesso em /programa-piloto.' }, { status: 403 });
   try {
     const ctx = await requireRole('owner')
 

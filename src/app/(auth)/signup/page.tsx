@@ -8,6 +8,8 @@ import { authErrorMessage } from '@/lib/auth/user-message';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LEGAL_DOCUMENTS } from '@/config/legal';
 import {
   Card,
   CardContent,
@@ -44,6 +46,8 @@ function SignupPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
+  const [pilotAccepted, setPilotAccepted] = useState(false);
   const supabase = createClient();
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -57,6 +61,11 @@ function SignupPageInner() {
 
     if (password.length < 6) {
       setError("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+
+    if (!legalAccepted || !pilotAccepted) {
+      setError("Aceite os Termos de Uso, a Política de Privacidade e as regras do Programa Piloto.");
       return;
     }
 
@@ -78,6 +87,12 @@ function SignupPageInner() {
       options: {
         data: {
           full_name: fullName,
+          legal_terms_accepted: true,
+          legal_privacy_accepted: true,
+          pilot_terms_accepted: true,
+          terms_version: LEGAL_DOCUMENTS.termsOfUse.version,
+          privacy_version: LEGAL_DOCUMENTS.privacyPolicy.version,
+          pilot_version: LEGAL_DOCUMENTS.pilotProgram.version,
         },
         ...(emailRedirectTo ? { emailRedirectTo } : {}),
       },
@@ -155,7 +170,7 @@ function SignupPageInner() {
         <CardContent>
           <form onSubmit={handleSignup} className="flex flex-col gap-4">
             {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              <div id="signup-error" role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 {error}
               </div>
             )}
@@ -220,9 +235,20 @@ function SignupPageInner() {
               />
             </div>
 
+            <div className="space-y-4" aria-describedby={error ? "signup-error" : undefined}>
+              <label className="flex items-start gap-3 text-sm leading-6">
+                <Checkbox checked={legalAccepted} onCheckedChange={(checked) => setLegalAccepted(checked === true)} aria-label="Aceitar Termos de Uso e confirmar leitura da Política de Privacidade" />
+                <span>Declaro que li e aceito os <Link className="text-primary underline" href={LEGAL_DOCUMENTS.termsOfUse.route} target="_blank" rel="noopener noreferrer">Termos de Uso</Link> e confirmo que li a <Link className="text-primary underline" href={LEGAL_DOCUMENTS.privacyPolicy.route} target="_blank" rel="noopener noreferrer">Política de Privacidade</Link>.</span>
+              </label>
+              <label className="flex items-start gap-3 text-sm leading-6">
+                <Checkbox checked={pilotAccepted} onCheckedChange={(checked) => setPilotAccepted(checked === true)} aria-label="Aceitar regras do Programa Piloto" />
+                <span>Entendo que o <Link className="text-primary underline" href={LEGAL_DOCUMENTS.pilotProgram.route} target="_blank" rel="noopener noreferrer">Programa Piloto</Link> do Aunivo tem duração de 30 dias, é gratuito, não exige cartão e não gera cobrança ou renovação automática.</span>
+              </label>
+            </div>
+
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || !legalAccepted || !pilotAccepted}
               className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {loading ? "Criando conta..." : "Criar conta"}

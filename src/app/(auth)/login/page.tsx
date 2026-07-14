@@ -66,7 +66,7 @@ function LoginPageInner() {
     if (inviteToken) {
       router.push(`/join/${encodeURIComponent(inviteToken)}`);
     } else if (selectedPlan) {
-      router.push(`/checkout?plan=${selectedPlan}`);
+      router.push('/programa-piloto');
     } else {
       router.push("/dashboard");
     }
