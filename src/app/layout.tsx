@@ -23,10 +23,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.aunivo.com.br"),
 
-  title: {
-    default: "Aunivo — CRM simples para pequenas empresas",
-    template: "%s | Aunivo",
-  },
+  title: "Aunivo — CRM simples para pequenas empresas",
 
   description:
     "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
@@ -34,28 +31,18 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    url: "https://www.aunivo.com.br",
+    url: "/",
     siteName: "Aunivo",
     title: "Aunivo — CRM simples para pequenas empresas",
     description:
       "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
-    images: [
-      {
-        url: "/aunivo-og-v2.png",
-        width: 1200,
-        height: 630,
-        alt: "Aunivo — CRM simples para pequenas empresas",
-        type: "image/png",
-      },
-    ],
   },
 
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "Aunivo — CRM simples para pequenas empresas",
     description:
       "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
-    images: ["/aunivo-og-v2.png"],
   },
 };
 

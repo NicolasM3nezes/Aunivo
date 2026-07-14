@@ -43,10 +43,6 @@ export const metadata: Metadata = {
   description:
     "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
 
-  alternates: {
-    canonical: "/",
-  },
-
   openGraph: {
     type: "website",
     locale: "pt_BR",
@@ -58,7 +54,7 @@ export const metadata: Metadata = {
   },
 
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "Aunivo — CRM simples para pequenas empresas",
     description:
       "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
