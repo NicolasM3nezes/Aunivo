@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 
 import { PublicShell } from '@/components/public/public-shell';
+import { LandingCheckoutButton } from '@/components/public/landing-checkout-button';
 import { Button } from '@/components/ui/button';
 import { PLAN_DISPLAY } from '@/config/plans';
 import {
@@ -552,14 +553,22 @@ export default function HomePage() {
                       {plan.description}
                     </p>
 
-                    <Button
-                      render={<Link href={plan.href} />}
-                      className="mt-6 h-11 w-full rounded-xl"
-                      variant={plan.featured ? 'default' : 'outline'}
-                    >
-                      {plan.cta}
-                      <ArrowRight className="size-4" />
-                    </Button>
+                    {plan.key === 'business' ? (
+                      <Button
+                        render={<Link href={plan.href} />}
+                        className="mt-6 h-11 w-full rounded-xl"
+                        variant="outline"
+                      >
+                        {plan.cta}
+                        <ArrowRight className="size-4" />
+                      </Button>
+                    ) : (
+                      <LandingCheckoutButton
+                        plan={plan.key}
+                        label={plan.cta}
+                        featured={plan.featured}
+                      />
+                    )}
 
                     <div className="bg-border/70 my-7 h-px" />
 
