@@ -141,7 +141,7 @@ function SourceTooltip({ active, payload }: SourceTooltipProps) {
   if (!active || !item) return null;
 
   return (
-    <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-lg">
+    <div className="rounded-xl border border-border bg-popover px-3 py-2 text-popover-foreground shadow-lg">
       <div className="flex items-center gap-2">
         <span
           className="size-2.5 shrink-0 rounded-full"
@@ -951,17 +951,11 @@ export default function ReportsPage() {
                       />
 
                       <Tooltip
-                        contentStyle={tooltipStyle}
+                        content={<SourceTooltip />}
                         cursor={{
                           fill: 'var(--muted)',
                           opacity: 0.15,
                         }}
-                        formatter={(value) => [
-                          integer.format(
-                            Number(value),
-                          ),
-                          'Contatos',
-                        ]}
                       />
 
                       <Bar
@@ -1286,6 +1280,7 @@ function SourceDistribution({
 
           <Tooltip
             content={<SourceTooltip />}
+            cursor={false}
           />
         </PieChart>
       </ResponsiveContainer>
