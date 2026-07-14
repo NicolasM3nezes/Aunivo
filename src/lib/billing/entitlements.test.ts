@@ -10,14 +10,14 @@ function row(status: SubscriptionStatus, overrides: Partial<BillingRow> = {}): B
 describe('effective billing access', () => {
   it.each(['active','trialing'] as const)('keeps paid access for %s', (status) => expect(effectivePlanFor(row(status)).plan).toBe('pro'))
   it('keeps access when cancellation is scheduled', () => expect(effectivePlanFor(row('active', { cancel_at_period_end: true })).plan).toBe('pro'))
-  it('keeps past_due access inside grace', () => expect(effectivePlanFor(row('past_due', { grace_period_ends_at: '2099-01-01T00:00:00Z' })).access).toBe('grace'))
+  it('restricts past_due even inside the legacy grace window', () => expect(effectivePlanFor(row('past_due', { grace_period_ends_at: '2099-01-01T00:00:00Z' })).access).toBe('restricted'))
   it('restricts past_due after grace', () => expect(effectivePlanFor(row('past_due', { grace_period_ends_at: '2020-01-01T00:00:00Z' })).plan).toBe('free'))
   it.each(['canceled','unpaid','paused','incomplete_expired'] as const)('restricts %s', (status) => expect(effectivePlanFor(row(status)).access).toBe('restricted'))
   it('restricts accounts without a paid subscription', () => expect(effectivePlanFor(null).access).toBe('restricted'))
   it('grants paid Basic while keeping the stable free key', () => expect(effectivePlanFor(row('active', { plan_key: 'free' }))).toEqual({ plan: 'free', access: 'full', source: 'stripe' }))
-  it('prioritizes a permanent Pro override over Stripe', () => expect(effectivePlanFor(row('canceled', { access_override_plan: 'pro' }))).toEqual({ plan: 'pro', access: 'full', source: 'internal' }))
-  it('maps a Basic override to the stable free key', () => expect(effectivePlanFor(row('free', { access_override_plan: 'basic' }))).toEqual({ plan: 'free', access: 'full', source: 'internal' }))
-  it('accepts an override whose expiry is in the future', () => expect(effectivePlanFor(row('canceled', { access_override_plan: 'business', access_override_expires_at: '2099-01-01T00:00:00Z' })).plan).toBe('business'))
+  it('ignores a permanent legacy Pro override', () => expect(effectivePlanFor(row('canceled', { access_override_plan: 'pro' }))).toEqual({ plan: 'free', access: 'restricted', source: 'none' }))
+  it('ignores a legacy Basic override', () => expect(effectivePlanFor(row('free', { access_override_plan: 'basic' }))).toEqual({ plan: 'free', access: 'restricted', source: 'none' }))
+  it('ignores a legacy override whose expiry is in the future', () => expect(effectivePlanFor(row('canceled', { access_override_plan: 'business', access_override_expires_at: '2099-01-01T00:00:00Z' })).plan).toBe('free'))
   it('falls back to Stripe after an override expires', () => expect(effectivePlanFor(row('active', { access_override_plan: 'business', access_override_expires_at: '2020-01-01T00:00:00Z' }))).toEqual({ plan: 'pro', access: 'full', source: 'stripe' }))
 })
 

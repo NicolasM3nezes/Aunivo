@@ -10,6 +10,7 @@ import { NextRequest } from "next/server";
 //                      response the middleware returns — including redirects.
 let mockUser: { id: string } | null = null;
 let mockSubscription: { subscription_status: string; grace_period_ends_at: string | null } | null = null;
+let mockAccessActive = true;
 let refreshedCookies: Array<{
   name: string;
   value: string;
@@ -50,6 +51,10 @@ vi.mock("@supabase/ssr", () => ({
   }),
 }));
 
+vi.mock("@/lib/billing/access", () => ({
+  getEffectiveAccountAccess: async () => ({ isActive: mockAccessActive }),
+}));
+
 // Imported after the mock is registered.
 const { proxy } = await import("./proxy");
 
@@ -58,6 +63,7 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
   mockUser = null;
   mockSubscription = { subscription_status: 'active', grace_period_ends_at: null };
+  mockAccessActive = true;
   refreshedCookies = [];
 });
 
@@ -130,6 +136,7 @@ describe("middleware — refreshed auth cookies survive redirects", () => {
   it("redirects an account without a valid subscription to the plans page", async () => {
     mockUser = { id: "user-1" };
     mockSubscription = { subscription_status: 'free', grace_period_ends_at: null };
+    mockAccessActive = false;
 
     const res = await proxy(new NextRequest("https://app.test/dashboard"));
 

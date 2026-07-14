@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentAccount, UnauthorizedError } from "@/lib/auth/account";
+import { getEffectiveAccountAccess } from "@/lib/billing/access";
 import { DashboardShell } from "./dashboard-shell";
 
 // Server layout whose only job is to declare "do not index" metadata
@@ -19,10 +22,24 @@ export const metadata: Metadata = {
   },
 };
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  let accountId: string;
+  try {
+    ({ accountId } = await getCurrentAccount());
+  } catch (error) {
+    if (error instanceof UnauthorizedError) redirect("/login");
+    throw error;
+  }
+
+  const access = await getEffectiveAccountAccess(accountId);
+
+  if (!access.isActive) {
+    redirect("/planos");
+  }
+
   return <DashboardShell>{children}</DashboardShell>;
 }

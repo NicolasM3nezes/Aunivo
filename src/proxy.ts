@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isV1DisabledApi, isV1DisabledPage } from '@/config/features'
+import { getEffectiveAccountAccess } from '@/lib/billing/access'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -117,11 +118,11 @@ export async function proxy(request: NextRequest) {
 
   if (user && ((isProtectedPage && !isBillingRecoveryPage) || isGatedApi)) {
     const { data: profile } = await supabase.from('profiles').select('account_id').eq('user_id', user.id).maybeSingle()
-    const { data: valid } = profile?.account_id
-      ? await supabase.rpc('current_account_has_billing_access', { target_account_id: profile.account_id })
-      : { data: null }
+    const access = profile?.account_id
+      ? await getEffectiveAccountAccess(profile.account_id)
+      : null
 
-    if (!valid) {
+    if (!access?.isActive) {
       if (isGatedApi) {
         return withRefreshedCookies(NextResponse.json({ error: 'SUBSCRIPTION_REQUIRED', message: 'Escolha um plano para continuar usando o Aunivo.' }, { status: 402 }))
       }
