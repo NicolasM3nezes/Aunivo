@@ -6,6 +6,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemedToaster } from "@/components/themed-toaster";
+
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -21,44 +22,31 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: process.env.NEXT_PUBLIC_APP_URL
-    ? new URL(process.env.NEXT_PUBLIC_APP_URL)
-    : undefined,
+  metadataBase: new URL("https://www.aunivo.com.br"),
+
   title: {
-    default: "Aunivo — Automação comercial com IA para WhatsApp",
-    template: "%s — Aunivo",
+    default: "Aunivo — CRM simples para pequenas empresas",
+    template: "%s | Aunivo",
   },
+
   description:
-    "Automatize o atendimento, qualifique leads e organize suas vendas pelo WhatsApp com inteligência artificial.",
-  keywords: [
-    "automação WhatsApp",
-    "CRM",
-    "inteligência artificial",
-    "atendimento",
-    "vendas",
-  ],
-  applicationName: "Aunivo",
+    "Organize seus clientes, acompanhe suas vendas e nunca mais perca uma oportunidade.",
+
   openGraph: {
-    type: "website",
-    locale: "pt_BR",
-    siteName: "Aunivo",
-    title: "Aunivo — Automação comercial com IA para WhatsApp",
+    title: "Aunivo — CRM simples para pequenas empresas",
     description:
-      "Automatize o atendimento, qualifique leads e organize suas vendas pelo WhatsApp com inteligência artificial.",
+      "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
+    url: "https://www.aunivo.com.br",
+    siteName: "Aunivo",
+    locale: "pt_BR",
+    type: "website",
   },
+
   twitter: {
     card: "summary_large_image",
-    title: "Aunivo — Automação comercial com IA para WhatsApp",
+    title: "Aunivo — CRM simples para pequenas empresas",
     description:
-      "Automatize o atendimento, qualifique leads e organize suas vendas pelo WhatsApp com inteligência artificial.",
-  },
-  icons: {
-    icon: [{ url: "/icon" }],
-  },
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
+      "Organize clientes, negociações e próximos retornos em um só lugar.",
   },
 };
 
