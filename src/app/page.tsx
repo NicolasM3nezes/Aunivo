@@ -248,7 +248,7 @@ export default function HomePage() {
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_10%_10%,color-mix(in_oklab,var(--primary)_20%,transparent),transparent_34%),radial-gradient(circle_at_90%_35%,rgba(16,185,129,.16),transparent_30%)]" />
           <div className="via-primary/50 absolute top-0 left-1/2 -z-10 h-px w-[80%] -translate-x-1/2 bg-gradient-to-r from-transparent to-transparent" />
 
-          <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-[1.02fr_.98fr] lg:px-8 lg:py-32">
+          <div className="mx-auto grid max-w-7xl items-center gap-0 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-[1.02fr_.98fr] lg:gap-14 lg:px-8 lg:py-32">
             <div>
               <div className="border-primary/20 bg-primary/[0.07] text-primary mb-7 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium shadow-sm">
                 <Sparkles className="size-4" />
@@ -667,7 +667,7 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
 function ProductDemo() {
   return (
     
-    <div className="relative mx-auto w-full max-w-xl">
+    <div className="relative mx-auto hidden w-full max-w-xl lg:block">
       
       <div className="bg-primary/15 absolute -inset-10 -z-10 rounded-full blur-3xl" />
 
