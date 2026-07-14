@@ -36,11 +36,32 @@ import {
 } from '@/components/ui/accordion';
 
 export const metadata: Metadata = {
-  title: 'Aunivo — CRM simples para pequenas empresas',
+  metadataBase: new URL("https://www.aunivo.com.br"),
+
+  title: "Aunivo — CRM simples para pequenas empresas",
+
   description:
-    'Organize seus clientes, acompanhe suas vendas e nunca mais perca uma oportunidade.',
+    "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
+
   alternates: {
-    canonical: '/',
+    canonical: "/",
+  },
+
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    url: "/",
+    siteName: "Aunivo",
+    title: "Aunivo — CRM simples para pequenas empresas",
+    description:
+      "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "Aunivo — CRM simples para pequenas empresas",
+    description:
+      "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
   },
 };
 

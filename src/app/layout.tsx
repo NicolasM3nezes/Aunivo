@@ -6,7 +6,6 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemedToaster } from "@/components/themed-toaster";
-
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -30,23 +29,33 @@ export const metadata: Metadata = {
   },
 
   description:
-    "Organize seus clientes, acompanhe suas vendas e nunca mais perca uma oportunidade.",
+    "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
 
   openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    url: "https://www.aunivo.com.br",
+    siteName: "Aunivo",
     title: "Aunivo — CRM simples para pequenas empresas",
     description:
       "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
-    url: "https://www.aunivo.com.br",
-    siteName: "Aunivo",
-    locale: "pt_BR",
-    type: "website",
+    images: [
+      {
+        url: "/aunivo-og-v2.png",
+        width: 1200,
+        height: 630,
+        alt: "Aunivo — CRM simples para pequenas empresas",
+        type: "image/png",
+      },
+    ],
   },
 
   twitter: {
     card: "summary_large_image",
     title: "Aunivo — CRM simples para pequenas empresas",
     description:
-      "Organize clientes, negociações e próximos retornos em um só lugar.",
+      "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
+    images: ["/aunivo-og-v2.png"],
   },
 };
 
