@@ -8,7 +8,7 @@ async function main() {
     reason: { type: 'string' },
   } })
   const accountId = requireUuid(values['account-id'])
-  const days = Number(values.days)
+  const days = Number(values.days ?? '30')
   if (!Number.isInteger(days) || days < 1 || days > 3650) throw new Error('--days must be an integer between 1 and 3650')
   const reason = values.reason?.trim() || null
   const db = adminClient()

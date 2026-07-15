@@ -50,6 +50,7 @@ vi.mock("./admin-client", () => {
       return { data: { steps_executed: [], status: "success" }, error: null };
     }
     if (table === "automation_steps") return { data: state.steps, error: null };
+    if (table === "billing_plans") return { data: { limits: {}, features: { automations: true } }, error: null };
     return { data: null, error: null };
   }
 
@@ -94,6 +95,10 @@ vi.mock("./meta-send", () => ({
   engineSendText: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
   engineSendTemplate: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
   engineSendInteractive: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
+}));
+
+vi.mock("@/config/features", () => ({
+  FEATURES: { automations: true },
 }));
 
 import { runAutomationsForTrigger, triggerMatches } from "./engine";

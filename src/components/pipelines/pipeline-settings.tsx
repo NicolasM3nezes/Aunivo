@@ -61,6 +61,7 @@ interface PipelineSettingsProps {
   onCreateNewPipeline: () => void;
   canDeletePipeline: boolean;
   canDuplicatePipeline: boolean;
+  pipelineLimitMessage?: string;
   onDuplicatePipeline: () => void;
 }
 
@@ -74,6 +75,7 @@ export function PipelineSettings({
   onCreateNewPipeline,
   canDeletePipeline,
   canDuplicatePipeline,
+  pipelineLimitMessage,
   onDuplicatePipeline,
 }: PipelineSettingsProps) {
   const t = useTranslations("Pipelines.settings");
@@ -385,7 +387,7 @@ export function PipelineSettings({
                 variant="outline"
                 onClick={onDuplicatePipeline}
                 disabled={!canDuplicatePipeline}
-                title={!canDuplicatePipeline ? 'Seu plano Basic permite apenas 1 funil.' : undefined}
+                title={!canDuplicatePipeline ? pipelineLimitMessage : undefined}
                 className="w-full border-border bg-transparent text-muted-foreground hover:bg-muted"
               >
                 Duplicar funil

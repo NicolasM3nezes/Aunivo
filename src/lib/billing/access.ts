@@ -31,12 +31,26 @@ export function resolveEffectiveAccountAccess(billing: BillingRow | null, grants
   const activeInternal = grants.find((grant) => grant.grant_type === 'internal' && isActiveGrant(grant, now))
   if (activeInternal) return { ...grantAccess(activeInternal, true, now), hasStripeSubscription }
 
-  if (billing?.subscription_status === 'active' || billing?.subscription_status === 'trialing') {
+  if (billing?.access_override_plan && isFuture(billing.access_override_expires_at, now)) {
+    return {
+      plan: toPlanKey(billing.access_override_plan), source: 'internal', status: 'active',
+      startsAt: null, expiresAt: billing.access_override_expires_at,
+      daysRemaining: daysRemaining(billing.access_override_expires_at, now),
+      isActive: true, isPilot: false, isInternal: true,
+      hasStripeSubscription, access: 'full',
+    }
+  }
+
+  const inGrace = billing?.subscription_status === 'past_due'
+    && Boolean(billing.grace_period_ends_at)
+    && isFuture(billing.grace_period_ends_at, now)
+  if (billing?.subscription_status === 'active' || billing?.subscription_status === 'trialing' || inGrace) {
     return {
       plan: billing.plan_key, source: 'stripe', status: billing.subscription_status,
-      startsAt: billing.current_period_start, expiresAt: billing.current_period_end,
+      startsAt: billing.current_period_start,
+      expiresAt: inGrace ? billing.grace_period_ends_at : billing.current_period_end,
       daysRemaining: null, isActive: true, isPilot: false, isInternal: false,
-      hasStripeSubscription, access: 'full',
+      hasStripeSubscription, access: inGrace ? 'grace' : 'full',
     }
   }
   const activePilot = grants.find((grant) => grant.grant_type === 'pilot' && isActiveGrant(grant, now))
@@ -64,8 +78,11 @@ export async function getEffectiveAccountAccess(accountId: string, db: SupabaseC
     db.from('account_billing').select('*').eq('account_id', accountId).maybeSingle(),
     db.from('account_access_grants').select('*').eq('account_id', accountId),
   ])
-  if (billingResult.error) throw new Error(`Could not load billing: ${billingResult.error.message}`)
-  if (grantsResult.error) throw new Error(`Could not load access grants: ${grantsResult.error.message}`)
+  if (billingResult.error || grantsResult.error) {
+    const error = billingResult.error ?? grantsResult.error
+    console.error('[billing:entitlements]', { message: error?.message, code: error?.code, details: error?.details, hint: error?.hint, accountId })
+    throw new Error(`${billingResult.error ? 'Could not load billing' : 'Could not load access grants'}: ${error?.message}`)
+  }
   return resolveEffectiveAccountAccess(
     billingResult.data as BillingRow | null,
     Array.isArray(grantsResult.data) ? grantsResult.data as AccessGrantRow[] : [],

@@ -9,7 +9,7 @@ export const PLAN_DISPLAY_NAMES: Record<InternalPlan, string> = {
 
 export const PLAN_LIMITS = {
   free: { members: 1, contacts: 200, pipelines: 1, automations: 1, flows: 0, ai_agents: 0, ai_replies_monthly: 25, broadcast_recipients_monthly: 0 },
-  pro: { members: 3, contacts: 5_000, pipelines: null, automations: 25, flows: 10, ai_agents: 3, ai_replies_monthly: 2_000, broadcast_recipients_monthly: 5_000 },
+  pro: { members: 3, contacts: 5_000, pipelines: 5, automations: 25, flows: 10, ai_agents: 3, ai_replies_monthly: 2_000, broadcast_recipients_monthly: 5_000 },
   business: { members: null, contacts: null, pipelines: null, automations: null, flows: null, ai_agents: null, ai_replies_monthly: null, broadcast_recipients_monthly: null },
 } as const
 

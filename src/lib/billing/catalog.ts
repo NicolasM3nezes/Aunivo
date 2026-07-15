@@ -1,9 +1,10 @@
 import type { BillingFeature, BillingInterval, BillingLimit, PlanDefinition, PlanKey } from './types'
 import { PLAN_DISPLAY_NAMES, PLAN_LIMITS } from './plan-permissions'
+import { FEATURES } from '@/config/features'
 
 const freeFeatures: Record<BillingFeature, boolean> = {
   contacts: true, shared_inbox: false, whatsapp: true, pipelines: true, dashboard: true,
-  custom_fields: false, broadcasts: false, automations: true, flows: false,
+  custom_fields: false, broadcasts: false, automations: FEATURES.automations, flows: false,
   ai_drafts: true, ai_auto_reply: false, knowledge_base: false, reports: false,
   public_api: false, external_webhooks: false, mcp: false, advanced_permissions: false,
 }
@@ -16,7 +17,7 @@ export const BILLING_PLANS: Record<PlanKey, PlanDefinition> = {
     features: freeFeatures,
   },
   pro: {
-    key: 'pro', name: PLAN_DISPLAY_NAMES.pro, description: 'Automação e IA para equipes em crescimento.', recommended: true,
+    key: 'pro', name: PLAN_DISPLAY_NAMES.pro, description: 'Gestão comercial para equipes em crescimento.', recommended: true,
     prices: { monthly: 3990, yearly: 0 },
     limits: PLAN_LIMITS.pro,
     features: { ...freeFeatures, shared_inbox: true, custom_fields: true, broadcasts: true, flows: true, ai_auto_reply: true, knowledge_base: true, reports: true },

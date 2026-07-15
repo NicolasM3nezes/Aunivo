@@ -66,7 +66,7 @@
   "Dashboard": {
     "page": {
       "title": "Visão geral",
-      "description": "Análises em tempo real de conversas, contatos, oportunidades, campanhas e automações.",
+      "description": "Análises em tempo real de contatos, oportunidades, tarefas e resultados.",
       "activeConversations": "Conversas ativas",
       "newContactsToday": "Novos contatos hoje",
       "openDealsValue": "Valor das oportunidades abertas",
@@ -86,7 +86,7 @@
       "title": "Atividade recente",
       "viewAll": "Ver tudo →",
       "noActivity": "Nenhuma atividade ainda",
-      "noActivityHint": "Atividade de mensagens, negócios, transmissões e automações aparecerão aqui.",
+      "noActivityHint": "Atividades de contatos, negócios e tarefas aparecerão aqui.",
       "showingOf": "Mostrando {visible} de {totalLoaded}{plus}",
       "show": "Mostrar",
       "timeS": "{sec}s atrás",
@@ -289,7 +289,7 @@
       "searchPlaceholder": "Pesquisar por nome, telefone ou e-mail...",
       "filterByTags": "Filtrar por etiquetas",
       "clearAll": "Limpar tudo",
-      "noTagsYet": "Nenhum tags yet.",
+      "noTagsYet": "Ainda não tem Etiquetas",
       "selectedCount": "{count} selecionado",
       "clearSelection": "Claro",
       "deleteSelected": "Excluir selected",
@@ -460,7 +460,7 @@
     },
     "customFields": {
       "title": "Campos personalizados",
-      "desc": "Defina campos adicionais para os contatos, como CEP ou origem do lead. Eles aparecem em todos os contatos e na ação de automação “Atualizar campo do contato”.",
+      "desc": "Defina campos adicionais para os contatos, como CEP ou origem do lead. Eles aparecem em todos os contatos.",
       "addField": "Adicionar",
       "fieldName": "Novo campo nome…",
       "loading": "Carregando…",
@@ -1328,7 +1328,7 @@
       "tagsTitle": "Etiquetas",
       "tagsDesc": "Colour-coded labels for grouping and filtering contatos.",
       "fieldsTitle": "Campos personalizados",
-      "fieldsDesc": "Campos de contato extras (por exemplo, código ZIP, fonte do lead). Eles aparecem em todos os contatos e na ação de automação “Atualizar campo de contato”.",
+      "fieldsDesc": "Campos de contato extras, como CEP ou origem do lead. Eles aparecem em todos os contatos.",
       "adminRole": "Administrador",
       "failedToLoadTags": "Não foi possível load tags",
       "nameRequired": "Etiqueta nome is obrigatório",
@@ -1790,7 +1790,7 @@
       },
       "pro": {
         "name": "Pro",
-        "description": "Automação e IA para equipes em crescimento."
+        "description": "Gestão comercial para equipes em crescimento."
       },
       "business": {
         "name": "Business",

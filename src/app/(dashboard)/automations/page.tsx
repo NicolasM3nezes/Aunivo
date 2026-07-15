@@ -43,6 +43,8 @@ import {
 import { AUTOMATION_TEMPLATES, type TemplateSlug } from "@/lib/automations/templates"
 import { triggerMeta, formatRelative } from "@/lib/automations/trigger-meta"
 import { cn } from "@/lib/utils"
+import { PLAN_DISPLAY_NAMES } from '@/lib/billing/plan-permissions'
+import type { PlanKey } from '@/lib/billing/types'
 
 const TEMPLATE_ORDER: TemplateSlug[] = [
   "welcome_message",
@@ -263,7 +265,8 @@ export default function AutomationsPage() {
   )
 }
 
-function planError(body: { code?: string } | null, t: ReturnType<typeof useTranslations>, fallback: string) {
+function planError(body: { code?: string; maximum?: number; plan?: PlanKey } | null, t: ReturnType<typeof useTranslations>, fallback: string) {
+  if (body?.code === "limit_reached" && body.maximum !== undefined && body.plan) return `Seu plano ${PLAN_DISPLAY_NAMES[body.plan]} permite até ${body.maximum} automações ativas.`
   if (body?.code === "limit_reached") return t("toasts.planLimit")
   if (body?.code === "feature_unavailable") return t("toasts.planFeature")
   return t(fallback)

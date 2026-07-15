@@ -7,7 +7,7 @@ describe('official plan matrix', () => {
   })
 
   it('matches Pro resource and integration limits', () => {
-    expect(PLAN_LIMITS.pro).toMatchObject({ members: 3, contacts: 5_000, pipelines: null, automations: 25, flows: 10, ai_agents: 3, ai_replies_monthly: 2_000, broadcast_recipients_monthly: 5_000 })
+    expect(PLAN_LIMITS.pro).toMatchObject({ members: 3, contacts: 5_000, pipelines: 5, automations: 25, flows: 10, ai_agents: 3, ai_replies_monthly: 2_000, broadcast_recipients_monthly: 5_000 })
     expect(PLAN_FEATURES.pro).toMatchObject({ campaigns: true, api: false, webhooks: false, mcp: false })
   })
 

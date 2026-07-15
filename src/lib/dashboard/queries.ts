@@ -16,6 +16,7 @@ import type {
   ResponseTimeBucket,
   ResponseTimeSummary,
 } from './types'
+import { FEATURES } from '@/config/features'
 
 // ------------------------------------------------------------
 // All client-side aggregation. RLS scopes every query to the
@@ -291,11 +292,13 @@ export async function loadActivity(db: DB, limit = 20): Promise<ActivityItem[]> 
       .select('id, name, status, total_recipients, created_at')
       .order('created_at', { ascending: false })
       .limit(5),
-    db
-      .from('automation_logs')
-      .select('id, trigger_event, status, created_at, automation:automations(name), contact:contacts(name, phone)')
-      .order('created_at', { ascending: false })
-      .limit(10),
+    FEATURES.automations
+      ? db
+          .from('automation_logs')
+          .select('id, trigger_event, status, created_at, automation:automations(name), contact:contacts(name, phone)')
+          .order('created_at', { ascending: false })
+          .limit(10)
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   const items: ActivityItem[] = []

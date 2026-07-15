@@ -9,6 +9,8 @@ import {
 } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useAccountEntitlements } from '@/hooks/use-account-entitlements';
+import { PLAN_DISPLAY_NAMES } from '@/lib/billing/plan-permissions';
 import { dedupeByPhone, isUniqueViolation } from '@/lib/contacts/dedupe';
 import {
   parseContactCsv,
@@ -195,6 +197,7 @@ export function ImportModal({
   const t = useTranslations('Contacts.importModal');
   const supabase = useMemo(() => createClient(), []);
   const { accountId, canEditSettings } = useAuth();
+  const { entitlements, loading: entitlementsLoading, refresh: refreshEntitlements } = useAccountEntitlements(accountId);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileReadSequenceRef = useRef(0);
@@ -455,6 +458,24 @@ export function ImportModal({
         return true;
       });
 
+      const latestEntitlements = await refreshEntitlements();
+      if (!latestEntitlements) {
+        throw new Error('Não foi possível confirmar o limite de contatos da conta. Tente novamente.');
+      }
+      const contactLimit = latestEntitlements.limits.contacts;
+      const { count: contactsUsed, error: countError } = await supabase
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', currentAccountId);
+      if (countError) throw countError;
+      const remaining = contactLimit === null
+        ? null
+        : Math.max(0, contactLimit - (contactsUsed ?? 0));
+      if (contactLimit !== null && remaining !== null && contactsToInsert.length > remaining) {
+        const planName = PLAN_DISPLAY_NAMES[latestEntitlements.effectivePlan];
+        throw new Error(`Seu plano ${planName} permite até ${contactLimit.toLocaleString('pt-BR')} contatos. A importação possui ${contactsToInsert.length.toLocaleString('pt-BR')} contatos novos, mas restam ${remaining.toLocaleString('pt-BR')} vagas. Nenhum contato foi importado.`);
+      }
+
       const tagAssignments: ContactTagAssignment[] = [];
 
       for (const contactChunk of chunkArray(
@@ -476,6 +497,10 @@ export function ImportModal({
           .select('id, phone, phone_normalized');
 
         if (error) {
+          if (error.message?.includes('billing_limit_reached:contacts:')) {
+            const planName = PLAN_DISPLAY_NAMES[latestEntitlements.effectivePlan];
+            throw new Error(`O limite de contatos do plano ${planName} foi atingido durante a importação. A operação foi interrompida após ${imported.toLocaleString('pt-BR')} contatos; revise o uso atual antes de tentar novamente.`);
+          }
           for (const row of contactChunk) {
             const single = await insertContactIndividually(
               row,
@@ -876,6 +901,8 @@ export function ImportModal({
                 parsedRows.length === 0 ||
                 importing ||
                 parsingFile ||
+                entitlementsLoading ||
+                !entitlements ||
                 !accountId
               }
               onClick={handleImport}

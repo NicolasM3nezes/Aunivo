@@ -22,6 +22,7 @@ import { engineSendText, engineSendTemplate, engineSendInteractive } from './met
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
 import { assertFeature } from '@/lib/billing/entitlements'
+import { FEATURES } from '@/config/features'
 
 // ------------------------------------------------------------
 // Public API
@@ -63,6 +64,8 @@ export interface DispatchInput {
  * recorded into automation_logs with status='failed'.
  */
 export async function runAutomationsForTrigger(input: DispatchInput): Promise<void> {
+  if (!FEATURES.automations) return
+
   try {
     const db = supabaseAdmin()
     await assertFeature(input.accountId, 'automations', db)
@@ -137,6 +140,8 @@ export async function resumePendingExecution(pending: {
   next_step_position: number
   context: AutomationContext
 }): Promise<void> {
+  if (!FEATURES.automations) return
+
   const db = supabaseAdmin()
   const { data: automation, error } = await db
     .from('automations')

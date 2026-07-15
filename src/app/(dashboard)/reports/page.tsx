@@ -41,6 +41,7 @@ import {
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useAccountEntitlements } from '@/hooks/use-account-entitlements';
 import { normalizeError } from '@/lib/errors/normalize-error';
 import { formatCurrencyDetailed } from '@/lib/currency';
 import { getSourceColor } from '@/lib/reports/source-colors';
@@ -165,6 +166,8 @@ export default function ReportsPage() {
     profileLoading,
     defaultCurrency,
   } = useAuth();
+  const { entitlements, loading: entitlementsLoading } = useAccountEntitlements(accountId);
+  const hasAdvancedReports = entitlements?.features.reports ?? false;
 
   const [period, setPeriod] =
     useState<ReportPeriod>('30');
@@ -500,7 +503,7 @@ export default function ReportsPage() {
     [report],
   );
 
-  const cards = report
+  const cards = (report
     ? [
         [
           'Total de contatos',
@@ -557,7 +560,9 @@ export default function ReportsPage() {
           'Valor médio dos negócios ganhos',
         ],
       ] as const
-    : [];
+    : []).slice(0, hasAdvancedReports ? undefined : 3);
+
+  const displayLoading = loading || entitlementsLoading;
 
   return (
     <div className="space-y-6 pb-8">
@@ -587,6 +592,7 @@ export default function ReportsPage() {
             </label>
 
             <Select
+  disabled={!hasAdvancedReports || entitlementsLoading}
   value={pipelineFilter}
   onValueChange={(value) => value && setPipelineFilter(value)}
 >
@@ -669,12 +675,12 @@ export default function ReportsPage() {
                 variant="outline"
                 size="icon"
                 aria-label="Atualizar relatórios"
-                disabled={loading}
+                disabled={displayLoading}
                 onClick={() => void load()}
               >
                 <RefreshCw
                   className={
-                    loading
+                    displayLoading
                       ? 'size-4 animate-spin'
                       : 'size-4'
                   }
@@ -696,6 +702,12 @@ export default function ReportsPage() {
         selecionado.
       </div>
 
+      {!entitlementsLoading && !hasAdvancedReports ? (
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+          Seu plano Basic inclui os indicadores essenciais. Relatórios por origem, desempenho e comparação de funis estão disponíveis no Pro.
+        </div>
+      ) : null}
+
       {error ? (
         <div
           role="alert"
@@ -715,9 +727,9 @@ export default function ReportsPage() {
         </div>
       ) : null}
 
-      {loading ? <ReportsSkeleton /> : null}
+      {displayLoading ? <ReportsSkeleton /> : null}
 
-      {!loading && !error && report ? (
+      {!displayLoading && !error && report ? (
         <>
           <section
             aria-label="Indicadores comerciais"
@@ -887,6 +899,7 @@ export default function ReportsPage() {
             </ChartCard>
           </section>
 
+          {hasAdvancedReports ? <>
           <section className="space-y-4">
             <SectionHeading
               icon={Megaphone}
@@ -1173,6 +1186,7 @@ export default function ReportsPage() {
               />
             </section>
           ) : null}
+          </> : null}
         </>
       ) : null}
     </div>

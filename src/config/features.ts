@@ -26,13 +26,13 @@ export const FEATURES = {
   webhooks: false,
   publicApi: false,
   apiKeys: false,
-  team: false,
-  invitations: false,
-  advancedReports: false,
+  team: true,
+  invitations: true,
+  advancedReports: true,
 } as const;
 
-const DISABLED_PAGES = ['/inbox','/automations','/broadcasts','/flows','/agents','/conversations','/chats','/whatsapp','/channels','/ai','/knowledge-base','/integrations','/webhooks','/api-keys','/team','/members','/invitations','/join','/analytics'] as const;
-const DISABLED_APIS = ['/api/automations','/api/flows','/api/ai','/api/account/api-keys','/api/account/members','/api/account/invitations','/api/account/transfer-ownership','/api/invitations','/api/quick-replies','/api/v1','/api/whatsapp'] as const;
+const DISABLED_PAGES = ['/inbox','/broadcasts','/automations','/flows','/agents','/conversations','/chats','/whatsapp','/channels','/ai','/knowledge-base','/integrations','/webhooks','/api-keys','/analytics'] as const;
+const DISABLED_APIS = ['/api/automations','/api/flows','/api/ai','/api/account/api-keys','/api/account/transfer-ownership','/api/quick-replies','/api/v1','/api/whatsapp'] as const;
 
 const matches = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 export const isV1DisabledPage = (pathname: string) => DISABLED_PAGES.some((prefix) => matches(pathname, prefix));

@@ -16,6 +16,8 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { PLAN_DISPLAY_NAMES } from '@/lib/billing/plan-permissions';
+import type { PlanKey } from '@/lib/billing/types';
 import { Copy, Loader2, MessageCircle, Sparkles } from 'lucide-react';
 
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -116,8 +118,12 @@ export function InviteMemberDialog({
       });
 
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to create invitation');
+        const payload = await res.json().catch(() => ({})) as { error?: string; code?: string; maximum?: number; plan?: PlanKey };
+        if (payload.code === 'limit_reached' && payload.maximum !== undefined && payload.plan) {
+          toast.error(`Seu plano ${PLAN_DISPLAY_NAMES[payload.plan]} permite até ${payload.maximum} usuários, incluindo convites pendentes.`);
+        } else {
+          toast.error(payload.error || 'Failed to create invitation');
+        }
         return;
       }
 

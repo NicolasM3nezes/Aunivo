@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { BILLING_PLANS } from './catalog'
 import { getEffectiveAccountAccess, resolveEffectiveAccountAccess } from './access'
 import type { AccessGrantRow, AccountEntitlements, BillingFeature, BillingLimit, BillingRow, PlanKey } from './types'
+import { FEATURES } from '@/config/features'
 
 export class BillingAccessError extends Error {
   constructor(public readonly code: 'feature_unavailable' | 'limit_reached', public readonly detail: Record<string, unknown>) {
@@ -31,7 +32,23 @@ export function isMissingBillingSchemaError(error: SupabaseErrorLike): boolean {
 function basicEntitlements(accountId: string): AccountEntitlements {
   const definition = BILLING_PLANS.free
   const effectiveAccess = resolveEffectiveAccountAccess(null, [])
-  return { accountId, configuredPlan: 'free', effectivePlan: 'free', status: 'free', access: 'restricted', source: 'none', effectiveAccess, gracePeriodEndsAt: null, limits: definition.limits, features: definition.features }
+  return { accountId, configuredPlan: 'free', effectivePlan: 'free', status: 'free', access: 'restricted', source: 'none', effectiveAccess, gracePeriodEndsAt: null, limits: definition.limits, features: { ...definition.features, automations: FEATURES.automations && definition.features.automations } }
+}
+
+function resolvedPlanDefinition(row: { limits?: unknown; features?: unknown } | null, fallback: typeof BILLING_PLANS[PlanKey]) {
+  const rawLimits = row?.limits && typeof row.limits === 'object' ? row.limits as Record<string, unknown> : {}
+  const rawFeatures = row?.features && typeof row.features === 'object' ? row.features as Record<string, unknown> : {}
+  const limits = { ...fallback.limits }
+  const features = { ...fallback.features }
+  for (const key of Object.keys(limits) as BillingLimit[]) {
+    const value = rawLimits[key]
+    if (value === null || (typeof value === 'number' && Number.isFinite(value) && value >= 0)) limits[key] = value
+  }
+  for (const key of Object.keys(features) as BillingFeature[]) {
+    const value = rawFeatures[key]
+    if (typeof value === 'boolean') features[key] = value
+  }
+  return { limits, features }
 }
 
 export async function getAccountEntitlements(accountId: string, db: SupabaseClient = supabaseAdmin()): Promise<AccountEntitlements> {
@@ -48,8 +65,14 @@ export async function getAccountEntitlements(accountId: string, db: SupabaseClie
     throw error
   }
   const plan = effectiveAccess.isActive ? effectiveAccess.plan : 'free'
-  const definition = BILLING_PLANS[plan]
-  return { accountId, configuredPlan: plan, effectivePlan: plan, status: effectiveAccess.source === 'stripe' ? effectiveAccess.status as AccountEntitlements['status'] : 'free', access: effectiveAccess.access, source: effectiveAccess.source, effectiveAccess, gracePeriodEndsAt: effectiveAccess.access === 'grace' ? effectiveAccess.expiresAt : null, limits: definition.limits, features: definition.features }
+  const fallbackDefinition = BILLING_PLANS[plan]
+  const { data: planRow, error: planError } = await db.from('billing_plans').select('limits,features').eq('key', plan).maybeSingle()
+  if (planError || !planRow) {
+    console.error('[billing:entitlements]', { message: planError?.message ?? 'Effective billing plan is missing from billing_plans', code: planError?.code, details: planError?.details, hint: planError?.hint, accountId, effectivePlan: plan })
+    throw new Error(`Could not load effective plan definition: ${planError?.message ?? plan}`)
+  }
+  const definition = resolvedPlanDefinition(planRow, fallbackDefinition)
+  return { accountId, configuredPlan: plan, effectivePlan: plan, status: effectiveAccess.source === 'stripe' ? effectiveAccess.status as AccountEntitlements['status'] : 'free', access: effectiveAccess.access, source: effectiveAccess.source, effectiveAccess, gracePeriodEndsAt: effectiveAccess.access === 'grace' ? effectiveAccess.expiresAt : null, limits: definition.limits, features: { ...definition.features, automations: FEATURES.automations && definition.features.automations } }
 }
 
 export async function assertFeature(accountId: string, feature: BillingFeature, db?: SupabaseClient) {
@@ -61,7 +84,10 @@ export async function assertFeature(accountId: string, feature: BillingFeature, 
 export async function assertWithinLimit(accountId: string, limit: BillingLimit, currentUsage: number, increment = 1, db?: SupabaseClient) {
   const entitlements = await getAccountEntitlements(accountId, db)
   const maximum = entitlements.limits[limit]
-  if (maximum !== null && currentUsage + increment > maximum) throw new BillingAccessError('limit_reached', { limit, maximum, currentUsage, requested: increment, plan: entitlements.effectivePlan })
+  if (maximum !== null && currentUsage + increment > maximum) {
+    console.error('[billing:limit]', { feature: limit, effectivePlan: entitlements.effectivePlan, limit: maximum, usage: currentUsage, requested: increment, accountId })
+    throw new BillingAccessError('limit_reached', { limit, maximum, currentUsage, requested: increment, plan: entitlements.effectivePlan })
+  }
   return entitlements
 }
 

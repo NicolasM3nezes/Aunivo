@@ -156,11 +156,6 @@ export function PricingClient() {
                       ? 'Funis ilimitados'
                       : `${plan.limits.pipelines} ${plan.limits.pipelines === 1 ? 'funil' : 'funis'}`}
                   </PlanBenefit>
-                  <PlanBenefit>
-                    {plan.limits.automations === null
-                      ? 'Automações ilimitadas'
-                      : `${plan.limits.automations} ${plan.limits.automations === 1 ? 'automação' : 'automações'}`}
-                  </PlanBenefit>
                   <PlanBenefit enabled={plan.features.broadcasts}>
                     Campanhas
                   </PlanBenefit>

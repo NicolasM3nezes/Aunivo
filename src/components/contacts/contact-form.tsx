@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useAccountEntitlements } from '@/hooks/use-account-entitlements';
+import { PLAN_DISPLAY_NAMES } from '@/lib/billing/plan-permissions';
 import { toast } from 'sonner';
 import type { Contact, ContactTag, Tag } from '@/types';
 import {
@@ -82,6 +84,7 @@ export function ContactForm({
 }: ContactFormProps) {
   const supabase = useMemo(() => createClient(), []);
   const { accountId } = useAuth();
+  const { entitlements, loading: entitlementsLoading } = useAccountEntitlements(accountId);
 
   const isEdit = Boolean(contact?.id);
 
@@ -405,6 +408,10 @@ export function ContactForm({
         toast.error(
           'Você não tem permissão para salvar contatos nesta conta.',
         );
+      } else if (message.includes('billing_limit_reached:contacts:')) {
+        const limit = Number(message.match(/billing_limit_reached:contacts:(\d+)/)?.[1] ?? entitlements?.limits.contacts ?? 0);
+        const planName = entitlements ? PLAN_DISPLAY_NAMES[entitlements.effectivePlan] : 'atual';
+        toast.error(`Seu plano ${planName} permite até ${limit.toLocaleString('pt-BR')} contatos. Exclua um contato que não utiliza ou aumente sua capacidade.`);
       } else if (
         message.includes('schema cache') ||
         message.includes('lead_source')
@@ -646,6 +653,7 @@ export function ContactForm({
                 saving ||
                 checkingDuplicate ||
                 Boolean(duplicate?.exact) ||
+                (!isEdit && entitlementsLoading) ||
                 !accountId
               }
             >

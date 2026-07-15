@@ -66,7 +66,7 @@
   "Dashboard": {
     "page": {
       "title": "Dashboard",
-      "description": "Live analytics across conversations, contacts, deals, broadcasts, and automations.",
+      "description": "Live analytics across contacts, deals, tasks, and results.",
       "activeConversations": "Active Conversations",
       "newContactsToday": "New Contacts Today",
       "openDealsValue": "Open Deals Value",
@@ -86,7 +86,7 @@
       "title": "Recent Activity",
       "viewAll": "View all →",
       "noActivity": "No activity yet",
-      "noActivityHint": "Activity from messages, deals, broadcasts, and automations will appear here.",
+      "noActivityHint": "Activity from contacts, deals, and tasks will appear here.",
       "showingOf": "Showing {visible} of {totalLoaded}{plus}",
       "show": "Show",
       "timeS": "{sec}s ago",
@@ -460,7 +460,7 @@
     },
     "customFields": {
       "title": "Custom fields",
-      "desc": "Define extra contact fields (e.g. ZIP code, lead source). They appear on every contact and in the “Update Contact Field” automation action.",
+      "desc": "Define extra contact fields (e.g. ZIP code, lead source). They appear on every contact.",
       "addField": "Add",
       "fieldName": "New field name…",
       "loading": "Loading…",
@@ -1321,7 +1321,7 @@
       "tagsTitle": "Tags",
       "tagsDesc": "Colour-coded labels for grouping and filtering contacts.",
       "fieldsTitle": "Custom fields",
-      "fieldsDesc": "Extra contact fields (e.g. ZIP code, lead source). They appear on every contact and in the “Update Contact Field” automation action.",
+      "fieldsDesc": "Extra contact fields (e.g. ZIP code, lead source). They appear on every contact.",
       "adminRole": "Admin",
       "failedToLoadTags": "Failed to load tags",
       "nameRequired": "Tag name is required",
@@ -1792,7 +1792,7 @@
       },
       "pro": {
         "name": "Pro",
-        "description": "Automation and AI for growing teams."
+        "description": "Sales management for growing teams."
       },
       "business": {
         "name": "Business",

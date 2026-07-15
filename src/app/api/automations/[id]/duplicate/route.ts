@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/automations/admin-client'
-import { assertFeature } from '@/lib/billing/entitlements'
+import { assertFeature, BillingAccessError } from '@/lib/billing/entitlements'
+import { billingErrorResponse } from '@/lib/billing/http'
 
 export async function POST(
   _request: Request,
@@ -17,7 +18,7 @@ export async function POST(
     const ctx = await requireRole('agent')
     await assertFeature(ctx.accountId, 'automations')
   } catch (err) {
-    return toErrorResponse(err)
+    return err instanceof BillingAccessError ? billingErrorResponse(err) : toErrorResponse(err)
   }
 
   const supabase = await createClient()

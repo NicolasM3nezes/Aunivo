@@ -28,6 +28,7 @@ vi.mock('@/lib/billing/entitlements', () => ({
   getMonthlyUsage: vi.fn().mockResolvedValue(0),
   incrementMonthlyUsage: vi.fn().mockResolvedValue(undefined),
 }))
+vi.mock('@/config/features', () => ({ FEATURES: { automations: true } }))
 vi.mock('./admin-client', () => ({
   supabaseAdmin: () => ({
     from: (table: string) => {

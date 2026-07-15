@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import type { AutomationTriggerType } from '@/types'
+import { FEATURES } from '@/config/features'
 
 /**
  * Manual trigger for testing or for external integrations that want
@@ -9,6 +10,10 @@ import type { AutomationTriggerType } from '@/types'
  * account_id and dispatch over the account's automations.
  */
 export async function POST(request: Request) {
+  if (!FEATURES.automations) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   // Firing automations sends outbound WhatsApp — a write action. Require
   // at least `agent`; a viewer must not be able to trigger sends.
   let accountId: string

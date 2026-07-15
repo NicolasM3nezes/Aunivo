@@ -22,9 +22,11 @@ import {
   UserCog,
   Users,
   UsersRound,
+  Zap,
   X,
 } from "lucide-react";
 import type { AccountRole } from "@/lib/auth/roles";
+import { FEATURES } from "@/config/features";
 
 // Per-role chip metadata used in the sidebar's account strip + the
 // Members tab roster. Keeping this near both consumers in a single
@@ -93,6 +95,9 @@ const navItems: NavItem[] = [
   { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
   { href: "/tasks", labelKey: "tasks", icon: ListTodo },
   { href: "/reports", labelKey: "reports", icon: BarChart3 },
+  ...(FEATURES.automations
+    ? [{ href: "/automations", labelKey: "automations", icon: Zap }]
+    : []),
 ];
 
 const bottomNavItems = [

@@ -30,8 +30,8 @@ describe('effective account access resolver', () => {
     expect(resolveEffectiveAccountAccess(billing('active', { plan_key: 'free' }), [], now).plan).toBe('free')
     expect(resolveEffectiveAccountAccess(billing('trialing', { plan_key: 'pro' }), [], now).plan).toBe('pro')
   })
-  it('does not treat a legacy billing override as internal access', () => expect(resolveEffectiveAccountAccess(billing('free', { access_override_plan: 'pro' }), [], now)).toMatchObject({ source: 'none', isActive: false }))
-  it('does not grant Stripe access during past-due grace', () => expect(resolveEffectiveAccountAccess(billing('past_due', { grace_period_ends_at: '2099-01-01T00:00:00Z' }), [], now)).toMatchObject({ source: 'none', isActive: false }))
+  it('keeps a legacy billing override aligned with database enforcement', () => expect(resolveEffectiveAccountAccess(billing('free', { access_override_plan: 'pro' }), [], now)).toMatchObject({ plan: 'pro', source: 'internal', isActive: true }))
+  it('keeps Stripe access during a valid past-due grace period', () => expect(resolveEffectiveAccountAccess(billing('past_due', { grace_period_ends_at: '2099-01-01T00:00:00Z' }), [], now)).toMatchObject({ plan: 'pro', source: 'stripe', isActive: true, access: 'grace' }))
   it('does not open Stripe Portal for a pilot without a subscription', () => expect(canOpenStripePortal(resolveEffectiveAccountAccess(billing(), [grant('pilot')], now))).toBe(false))
   it('marks the active pilot converted without deleting its history', async () => {
     let patch: Record<string, unknown> | undefined

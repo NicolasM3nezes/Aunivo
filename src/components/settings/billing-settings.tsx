@@ -230,11 +230,6 @@ export function BillingSettings() {
                       value: plan.limits.contacts ?? t('unlimited'),
                     })}
                   </li>
-                  <li>
-                    {t('limits.automations', {
-                      value: plan.limits.automations ?? t('unlimited'),
-                    })}
-                  </li>
                 </ul>
                 {isInternal && key !== current ? null : key === 'business' && key !== current ? (
                   salesUrl ? (

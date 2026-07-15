@@ -32,7 +32,8 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from "@/lib/rate-limit";
-import { assertWithinLimit } from "@/lib/billing/entitlements";
+import { assertWithinLimit, BillingAccessError } from "@/lib/billing/entitlements";
+import { billingErrorResponse } from '@/lib/billing/http';
 
 // Resolve the base URL we publish invite links under.
 //
@@ -255,6 +256,6 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (err) {
-    return toErrorResponse(err);
+    return err instanceof BillingAccessError ? billingErrorResponse(err) : toErrorResponse(err);
   }
 }

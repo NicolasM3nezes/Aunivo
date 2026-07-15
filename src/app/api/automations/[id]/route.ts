@@ -11,7 +11,8 @@ import {
   validateStepsForActivation,
   validateTriggerForActivation,
 } from '@/lib/automations/validate'
-import { assertFeature, assertWithinLimit } from '@/lib/billing/entitlements'
+import { assertFeature, assertWithinLimit, BillingAccessError } from '@/lib/billing/entitlements'
+import { billingErrorResponse } from '@/lib/billing/http'
 
 async function requireUser() {
   const supabase = await createClient()
@@ -103,7 +104,7 @@ export async function PATCH(
       const { count } = await admin.from('automations').select('id', { count: 'exact', head: true }).eq('account_id', accountId).eq('is_active', true)
       await assertWithinLimit(accountId, 'automations', count ?? 0)
     } catch (err) {
-      return toErrorResponse(err)
+      return err instanceof BillingAccessError ? billingErrorResponse(err) : toErrorResponse(err)
     }
   }
   if (willBeActive) {

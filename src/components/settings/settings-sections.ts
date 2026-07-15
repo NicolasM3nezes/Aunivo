@@ -46,7 +46,7 @@ export const SETTINGS_SECTIONS = [
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 export const DEFAULT_SECTION: SettingsSection = 'overview';
-export const V1_SETTINGS_SECTIONS: readonly SettingsSection[] = ['overview','profile','security','appearance','notifications','fields','deals','billing'];
+export const V1_SETTINGS_SECTIONS: readonly SettingsSection[] = ['overview','profile','security','appearance','notifications','fields','deals','members','billing'];
 
 /** Rail grouping. `adminOnly` items are hidden for non-admins. */
 export interface SectionMeta {
