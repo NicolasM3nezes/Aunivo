@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MarketingConsent } from '@/components/settings/marketing-consent';
 import {
   Avatar,
   AvatarFallback,
@@ -354,6 +355,7 @@ export function ProfileForm() {
           </Button>
         </div>
       </form>
+      <MarketingConsent />
     </section>
   );
 }

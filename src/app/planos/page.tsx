@@ -43,7 +43,7 @@ const plans = [
     price: PLAN_DISPLAY.free.price,
     priceSuffix: '',
     cta: PLAN_DISPLAY.free.cta,
-    href: '/checkout?plan=free',
+    href: '/cadastro',
     featured: false,
     icon: Sparkles,
     features: [
@@ -65,7 +65,7 @@ const plans = [
     price: PLAN_DISPLAY.pro.price,
     priceSuffix: '',
     cta: PLAN_DISPLAY.pro.cta,
-    href: '/checkout?plan=pro',
+    href: '/cadastro',
     featured: true,
     icon: Crown,
     features: [
@@ -240,12 +240,11 @@ export default function PlansPage() {
               Planos Aunivo
             </p>
             <h2 className="mt-4 text-3xl font-bold tracking-[-.03em] sm:text-4xl">
-              Comece pelo Basic. Evolua para o que gera resultado.
+              Teste o Pro primeiro. Escolha seu plano depois.
             </h2>
             <p className="text-muted-foreground mx-auto mt-5 max-w-2xl leading-7">
-              Todos os planos foram pensados para reduzir tarefas manuais e
-              ajudar sua empresa a organizar melhor, acompanhar mais e vender com
-              mais clareza.
+              Todos os novos clientes começam com 14 dias do Aunivo Pro, sem
+              cartão e sem cobrança automática. Ao final, escolhem Basic ou Pro.
             </p>
           </div>
 
@@ -328,6 +327,10 @@ export default function PlansPage() {
                         <ArrowRight className="size-4" />
                       </Button>
                     )}
+
+                    {plan.key !== 'business' ? (
+                      <p className="mt-3 text-center text-xs text-muted-foreground">14 dias de Pro, sem cartão. Escolha seu plano depois do teste.</p>
+                    ) : null}
 
                     <div className="bg-border/70 my-7 h-px" />
 
@@ -524,12 +527,12 @@ export default function PlansPage() {
             </h2>
 
             <p className="text-muted-foreground mx-auto mt-4 max-w-2xl leading-7">
-              Comece pelo plano Basic e veja como o Aunivo pode organizar sua
-              operação desde a primeira conversa.
+              Teste todos os recursos do Pro por 14 dias, sem cartão e sem
+              cobrança automática.
             </p>
 
             <Button
-              render={<Link href="/checkout?plan=free" />}
+              render={<Link href="/cadastro" />}
               size="lg"
               className="shadow-primary/20 mt-8 h-12 rounded-xl px-6 shadow-lg"
             >

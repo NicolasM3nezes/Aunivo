@@ -58,18 +58,29 @@ function SelectTrigger({
 
 function SelectContent({
   className,
+  positionerClassName,
   children,
   side = "bottom",
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
   alignItemWithTrigger = true,
+  collisionAvoidance,
+  collisionPadding,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
     SelectPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger"
-  >) {
+    | "align"
+    | "alignOffset"
+    | "collisionAvoidance"
+    | "collisionPadding"
+    | "side"
+    | "sideOffset"
+    | "alignItemWithTrigger"
+  > & {
+    positionerClassName?: string
+  }) {
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -78,7 +89,9 @@ function SelectContent({
         align={align}
         alignOffset={alignOffset}
         alignItemWithTrigger={alignItemWithTrigger}
-        className="isolate z-50"
+        collisionAvoidance={collisionAvoidance}
+        collisionPadding={collisionPadding}
+        className={cn("isolate z-50", positionerClassName)}
       >
         <SelectPrimitive.Popup
           data-slot="select-content"
@@ -122,7 +135,10 @@ function SelectItem({
       )}
       {...props}
     >
-      <SelectPrimitive.ItemText className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">
+      <SelectPrimitive.ItemText
+        data-slot="select-item-text"
+        className="flex flex-1 shrink-0 gap-2 whitespace-nowrap"
+      >
         {children}
       </SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator

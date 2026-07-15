@@ -6,11 +6,10 @@ import { requireRole } from '@/lib/auth/account'
 import { priceIdFor } from '@/lib/billing/catalog'
 import {
   isCheckoutPlan,
-  shouldApplyProTrial,
   subscriptionBlocksCheckout,
 } from '@/lib/billing/checkout-rules'
 import { billingErrorResponse } from '@/lib/billing/http'
-import { getEffectiveAccountAccess, hasPilotGrantHistory } from '@/lib/billing/access'
+import { getEffectiveAccountAccess } from '@/lib/billing/access'
 import {
   appUrl,
   stripeServer,
@@ -81,10 +80,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const [effectiveAccess, pilotHistory] = await Promise.all([
-      getEffectiveAccountAccess(ctx.accountId, db),
-      hasPilotGrantHistory(ctx.accountId, db),
-    ])
+    const effectiveAccess = await getEffectiveAccountAccess(ctx.accountId, db)
 
     if (effectiveAccess.isInternal && effectiveAccess.isActive) {
       return NextResponse.json(
@@ -221,11 +217,9 @@ export async function POST(request: Request) {
       })
     }
 
-    const useTrial = shouldApplyProTrial(
-      body.planKey,
-      billing.trial_used_at,
-      pilotHistory,
-    )
+    // The acquisition trial is an internal cardless grant. Stripe is only
+    // used after the customer deliberately chooses a paid plan.
+    const useTrial = false
 
     const priceId = priceIdFor(
       body.planKey,

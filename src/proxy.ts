@@ -27,6 +27,18 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  if (!user && request.nextUrl.pathname === '/signup' && !request.nextUrl.searchParams.get('invite')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/cadastro'
+    url.search = ''
+    return NextResponse.redirect(url)
+  }
+  if (!user && request.nextUrl.pathname === '/cadastro' && request.nextUrl.searchParams.get('invite')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/signup'
+    return NextResponse.redirect(url)
+  }
+
   // getUser() transparently refreshes an expired access token, which
   // ROTATES the refresh token and writes the new cookies onto
   // `supabaseResponse` via setAll() above. Any response we return in
@@ -97,7 +109,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/tasks', '/notifications', '/reports', '/broadcasts', '/automations', '/flows', '/agents', '/settings', '/configuracoes', '/assinatura']
+  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/tasks', '/notifications', '/reports', '/broadcasts', '/automations', '/flows', '/agents', '/settings', '/configuracoes', '/assinatura', '/trial-expirado']
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
@@ -109,6 +121,7 @@ export async function proxy(request: NextRequest) {
   // trial. Billing, checkout and portal routes remain reachable for recovery.
   const isProtectedPage = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
   const isBillingRecoveryPage =
+    request.nextUrl.pathname === '/trial-expirado' ||
     request.nextUrl.pathname === '/assinatura' ||
     request.nextUrl.pathname.startsWith('/configuracoes/assinatura') ||
     (request.nextUrl.pathname === '/settings' && request.nextUrl.searchParams.get('tab') === 'billing')
@@ -127,7 +140,7 @@ export async function proxy(request: NextRequest) {
         return withRefreshedCookies(NextResponse.json({ error: 'SUBSCRIPTION_REQUIRED', message: 'Escolha um plano para continuar usando o Aunivo.' }, { status: 402 }))
       }
       const url = request.nextUrl.clone()
-      url.pathname = '/planos'
+      url.pathname = access?.source === 'trial' && access.status === 'expired' ? '/trial-expirado' : '/planos'
       url.search = ''
       url.searchParams.set('assinatura', 'necessaria')
       url.searchParams.set('next', request.nextUrl.pathname)

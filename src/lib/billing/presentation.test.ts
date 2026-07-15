@@ -5,7 +5,7 @@ import { pilotPresentationState } from './presentation'
 const access = (overrides: Partial<EffectiveAccountAccess> = {}): EffectiveAccountAccess => ({
   plan: 'pro', source: 'pilot', status: 'active', startsAt: '2026-07-01T00:00:00Z',
   expiresAt: '2026-08-01T00:00:00Z', daysRemaining: 19, isActive: true,
-  isPilot: true, isInternal: false, hasStripeSubscription: false, access: 'full', ...overrides,
+  isPilot: true, isInternal: false, isTrial: false, hasStripeSubscription: false, access: 'full', ...overrides,
 })
 
 describe('pilot billing presentation', () => {

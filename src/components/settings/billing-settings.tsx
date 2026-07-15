@@ -98,6 +98,7 @@ export function BillingSettings() {
   const hasAccess = state.entitlements.access !== 'restricted';
   const access = state.entitlements.effectiveAccess;
   const isInternal = access.isInternal && access.isActive;
+  const isTrial = access.isTrial && access.isActive;
   const pilotState = pilotPresentationState(access);
   const isPilot = pilotState !== 'none';
   const pilotActive = pilotState === 'active' || pilotState === 'ending_soon';
@@ -114,7 +115,9 @@ export function BillingSettings() {
               <CardDescription>{t('description')}</CardDescription>
             </div>
             <Badge>
-              {pilotActive
+              {isTrial
+                ? 'Teste Pro ativo'
+                : pilotActive
                 ? t('pilot.title', { plan: PLAN_DISPLAY[access.plan].name })
                 : isPilot
                   ? t('pilot.expiredBadge')
@@ -127,7 +130,13 @@ export function BillingSettings() {
           </div>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3 text-sm">
-          {pilotActive ? (
+          {isTrial ? (
+            <div className="basis-full space-y-2">
+              <p>Você está testando todos os recursos do Aunivo Pro sem cartão e sem cobrança automática.</p>
+              {pilotExpires && <p>Seu teste termina em {pilotExpires} ({access.daysRemaining ?? 0} dias restantes).</p>}
+              <p>Você pode assinar Basic ou Pro agora, ou escolher ao final do teste.</p>
+            </div>
+          ) : pilotActive ? (
             <div className="basis-full space-y-2">
               <p>{t('pilot.description', { plan: PLAN_DISPLAY[access.plan].name })}</p>
               {pilotExpires && <p>{t('pilot.endsAt', { date: pilotExpires })}</p>}
@@ -150,7 +159,7 @@ export function BillingSettings() {
               {t('status')}: {t(`statuses.${state.entitlements.status}`)}
             </span>
           )}
-          {!isInternal && !isPilot && state.billing?.current_period_end && (
+          {!isInternal && !isPilot && !isTrial && state.billing?.current_period_end && (
             <span>
               {t('renewal')}:{' '}
               {new Intl.DateTimeFormat('pt-BR').format(
@@ -252,7 +261,7 @@ export function BillingSettings() {
                     className="w-full"
                     disabled={
                       !state.canManage ||
-                      (key === current && hasAccess) ||
+                      (key === current && hasAccess && !isTrial) ||
                       !!busy
                     }
                     onClick={() =>
@@ -262,11 +271,11 @@ export function BillingSettings() {
                       })
                     }
                   >
-                    {key === current && hasAccess
+                    {isTrial && (key === 'free' || key === 'pro')
+                      ? `Assinar ${display.name}`
+                      : key === current && hasAccess
                       ? t('current')
-                      : key === 'pro' && !state.trialEligible
-                        ? 'Assinar Pro'
-                        : display.cta}
+                      : `Assinar ${display.name}`}
                   </Button>
                 )}
               </CardContent>

@@ -4,7 +4,6 @@ import {
   ArrowRight,
   BarChart3,
   Bot,
-  CalendarCheck,
   Check,
   ChevronRight,
   Clock3,
@@ -26,6 +25,7 @@ import {
 
 import { PublicShell } from '@/components/public/public-shell';
 import { LandingCheckoutButton } from '@/components/public/landing-checkout-button';
+import { TrialSignupForm } from '@/components/public/trial-signup-form';
 import { Button } from '@/components/ui/button';
 import { PLAN_DISPLAY } from '@/config/plans';
 import {
@@ -274,23 +274,23 @@ export default function HomePage() {
               </div>
 
               <h1 className="text-foreground max-w-3xl text-4xl font-bold tracking-[-.045em] sm:text-5xl lg:text-[4rem] lg:leading-[1.04]">
-                Organize seus clientes e{' '}
+                Organize seus contatos e vendas{' '}
                 <span className="from-primary bg-gradient-to-r via-blue-500 to-emerald-400 bg-clip-text text-transparent">
-                  acompanhe cada oportunidade de venda
+                  com o Aunivo
                 </span>
               </h1>
 
               <p className="text-muted-foreground mt-6 max-w-2xl text-lg leading-8 sm:text-xl">
-                Controle contatos, negociações e próximos retornos em um só lugar.
+                Teste todos os recursos do Aunivo Pro por 14 dias. Organize seus contatos, acompanhe negociações, tarefas e resultados em um único lugar.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Button
-                  render={<Link href="/planos" />}
+                  render={<Link href="#teste-gratis" />}
                   size="lg"
                   className="shadow-primary/20 h-12 rounded-xl px-6 shadow-lg"
                 >
-                  Ver planos
+                  Começar grátis
                   <ArrowRight className="size-4" />
                 </Button>
 
@@ -307,20 +307,20 @@ export default function HomePage() {
               <div className="text-muted-foreground mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
                 <span className="inline-flex items-center gap-1.5">
                   <Check className="size-4 text-emerald-500" />
-                  Plano a partir de {PLAN_DISPLAY.free.price}
+                  14 dias grátis
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Check className="size-4 text-emerald-500" />
-                  {PLAN_DISPLAY.free.name} por {PLAN_DISPLAY.free.price}
+                  Sem cartão de crédito
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <ShieldCheck className="size-4 text-emerald-500" />
-                  Configuração segura
+                  Configuração rápida
                 </span>
               </div>
             </div>
 
-            <ProductDemo />
+            <TrialSignupForm />
           </div>
         </section>
 
@@ -587,6 +587,10 @@ export default function HomePage() {
                       />
                     )}
 
+                    {plan.key !== 'business' ? (
+                      <p className="mt-3 text-center text-xs text-muted-foreground">Todos os novos clientes começam com 14 dias do Aunivo Pro, sem cartão e sem cobrança automática.</p>
+                    ) : null}
+
                     <div className="bg-border/70 my-7 h-px" />
 
                     <p className="text-sm font-semibold">
@@ -666,12 +670,12 @@ export default function HomePage() {
             </p>
 
             <Button
-              render={<Link href="/planos" />}
+              render={<Link href="#teste-gratis" />}
               size="lg"
               variant="secondary"
               className="mt-8 h-12 rounded-xl px-6"
             >
-              Ver planos e começar
+              Começar teste grátis
               <ArrowRight className="size-4" />
             </Button>
           </div>
@@ -686,140 +690,5 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
     <p className="text-primary text-sm font-semibold tracking-[.18em] uppercase">
       {children}
     </p>
-    
-  );
-}
-
-function ProductDemo() {
-  return (
-    
-    <div className="relative mx-auto hidden w-full max-w-xl lg:block">
-      
-      <div className="bg-primary/15 absolute -inset-10 -z-10 rounded-full blur-3xl" />
-
-      
-
-      <div className="border-border/70 bg-card overflow-hidden rounded-[1.75rem] border shadow-2xl shadow-black/10">
-        <div className="border-border/70 bg-background/70 flex items-center justify-between border-b px-5 py-3 backdrop-blur">
-          <div className="flex gap-1.5">
-            <span className="size-2.5 rounded-full bg-red-400" />
-            <span className="size-2.5 rounded-full bg-amber-400" />
-            <span className="size-2.5 rounded-full bg-emerald-400" />
-          </div>
-
-          <span className="text-muted-foreground text-xs font-medium">
-            Aunivo • CRM comercial
-          </span>
-
-          <span className="size-8" />
-        </div>
-
-        <div className="grid min-h-[410px] grid-cols-[.37fr_.63fr]">
-          <div className="border-border/70 bg-muted/25 border-r p-3">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
-                Novos leads
-              </p>
-
-              <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[9px] font-semibold">
-                3
-              </span>
-            </div>
-
-            {['Mariana Alves', 'Clínica Sorriso', 'Rafael Lima'].map(
-              (name, index) => (
-                <div
-                  key={name}
-                  className={`mb-2 rounded-xl p-3 ${
-                    index === 0
-                      ? 'bg-primary/10 ring-primary/20 ring-1'
-                      : 'bg-background/70'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="bg-primary/15 text-primary grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-bold">
-                      {name[0]}
-                    </span>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-[11px] font-semibold">
-                        {name}
-                      </p>
-                      <p className="text-muted-foreground truncate text-[9px]">
-                        Follow-up comercial
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-
-          <div className="flex flex-col p-4">
-            <div className="border-border/70 flex items-center justify-between border-b pb-3">
-              <div>
-                <p className="text-sm font-semibold">Mariana Alves</p>
-                <p className="text-[10px] text-emerald-500">
-                  ● Oportunidade em andamento
-                </p>
-              </div>
-
-              <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-semibold text-emerald-600">
-                Retorno hoje
-              </span>
-            </div>
-
-            <div className="flex flex-1 flex-col justify-center gap-3">
-              <div className="bg-muted max-w-[80%] rounded-2xl rounded-bl-md p-3 text-xs">
-                Interesse registrado no plano Pro.
-              </div>
-
-              <div className="bg-primary text-primary-foreground ml-auto max-w-[88%] rounded-2xl rounded-br-md p-3 text-xs shadow-sm">
-                <span className="mb-1 flex items-center gap-1 text-[9px] opacity-75">
-                  Registro comercial
-                </span>
-                Proposta enviada. Retomar o contato nesta tarde para confirmar
-                os próximos passos.
-              </div>
-
-              <div className="bg-muted max-w-[80%] rounded-2xl rounded-bl-md p-3 text-xs">
-                Responsável: Mariana • Valor: R$ 2.400
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="border-border/70 bg-background rounded-xl border p-2.5">
-                <p className="text-muted-foreground text-[9px]">Funil</p>
-                <p className="mt-1 text-[10px] font-semibold">
-                  Novo contato → Negociação
-                </p>
-              </div>
-
-              <div className="border-border/70 bg-background rounded-xl border p-2.5">
-                <p className="text-muted-foreground text-[9px]">Próxima ação</p>
-                <p className="mt-1 flex items-center gap-1 text-[10px] font-semibold">
-                  <CalendarCheck className="text-primary size-3" />
-                  Agendar conversa
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="border-border/70 bg-background/90 absolute -bottom-7 -left-7 hidden rounded-2xl border px-4 py-3 shadow-xl backdrop-blur sm:block">
-        <div className="flex items-center gap-2">
-          <span className="grid size-8 place-items-center rounded-xl bg-emerald-500/10 text-emerald-500">
-            <Check className="size-4" />
-          </span>
-          <div>
-            <p className="text-muted-foreground text-[10px]">
-              Follow-up atualizado
-            </p>
-            <p className="text-xs font-semibold">Oportunidade pronta para avançar</p>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }

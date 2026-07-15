@@ -2,8 +2,8 @@ import type { InternalPlan } from './plan-permissions'
 
 export type PlanKey = InternalPlan
 export type AccessOverridePlan = 'basic' | 'pro' | 'business'
-export type BillingAccessSource = 'internal' | 'stripe' | 'pilot' | 'none'
-export type AccessGrantType = 'pilot' | 'internal'
+export type BillingAccessSource = 'internal' | 'stripe' | 'pilot' | 'trial' | 'none'
+export type AccessGrantType = 'pilot' | 'internal' | 'trial'
 export type AccessGrantStatus = 'active' | 'revoked' | 'expired' | 'converted'
 export type BillingInterval = 'monthly' | 'yearly'
 export type SubscriptionStatus =
@@ -82,6 +82,7 @@ export interface EffectiveAccountAccess {
   isActive: boolean
   isPilot: boolean
   isInternal: boolean
+  isTrial: boolean
   hasStripeSubscription: boolean
   access: 'full' | 'grace' | 'restricted'
 }

@@ -72,7 +72,7 @@ export async function getAccountEntitlements(accountId: string, db: SupabaseClie
     throw new Error(`Could not load effective plan definition: ${planError?.message ?? plan}`)
   }
   const definition = resolvedPlanDefinition(planRow, fallbackDefinition)
-  return { accountId, configuredPlan: plan, effectivePlan: plan, status: effectiveAccess.source === 'stripe' ? effectiveAccess.status as AccountEntitlements['status'] : 'free', access: effectiveAccess.access, source: effectiveAccess.source, effectiveAccess, gracePeriodEndsAt: effectiveAccess.access === 'grace' ? effectiveAccess.expiresAt : null, limits: definition.limits, features: { ...definition.features, automations: FEATURES.automations && definition.features.automations } }
+  return { accountId, configuredPlan: plan, effectivePlan: plan, status: effectiveAccess.source === 'stripe' || effectiveAccess.source === 'trial' ? effectiveAccess.status as AccountEntitlements['status'] : 'free', access: effectiveAccess.access, source: effectiveAccess.source, effectiveAccess, gracePeriodEndsAt: effectiveAccess.access === 'grace' ? effectiveAccess.expiresAt : null, limits: definition.limits, features: { ...definition.features, automations: FEATURES.automations && definition.features.automations } }
 }
 
 export async function assertFeature(accountId: string, feature: BillingFeature, db?: SupabaseClient) {

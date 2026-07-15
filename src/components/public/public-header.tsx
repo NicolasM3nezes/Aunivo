@@ -90,7 +90,7 @@ export function PublicHeader() {
             </Button>
 
             <Button
-              render={<Link href="/planos" />}
+              render={<Link href="/#teste-gratis" />}
               className="h-10 rounded-xl px-5 shadow-lg shadow-primary/15"
             >
               Começar agora
@@ -163,7 +163,7 @@ export function PublicHeader() {
             </Button>
 
             <Button
-              render={<Link href="/cadastro" onClick={closeMenu} />}
+              render={<Link href="/#teste-gratis" onClick={closeMenu} />}
               className="h-11 w-full rounded-xl"
             >
               Começar agora

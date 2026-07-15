@@ -38,6 +38,9 @@ export default async function DashboardLayout({
   const access = await getEffectiveAccountAccess(accountId);
 
   if (!access.isActive) {
+    if (access.source === "trial" && access.status === "expired") {
+      redirect("/trial-expirado");
+    }
     redirect("/planos");
   }
 

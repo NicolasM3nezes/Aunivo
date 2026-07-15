@@ -8,15 +8,15 @@ export const PLAN_DISPLAY: Record<
   free: {
     name: PLAN_DISPLAY_NAMES.free,
     price: 'R$ 12,90/mês',
-    description: 'O essencial para organizar sua operação, com cobrança mensal imediata.',
-    cta: 'Assinar Basic',
+    description: 'O essencial para organizar sua operação depois de testar todos os recursos Pro.',
+    cta: 'Começar teste grátis',
   },
   pro: {
     name: PLAN_DISPLAY_NAMES.pro,
     price: 'R$ 39,90/mês',
     description:
-      'CRM completo com 14 dias grátis no primeiro teste e cartão cadastrado no início.',
-    cta: 'Começar teste grátis',
+      'CRM completo para experimentar por 14 dias, sem cartão e sem cobrança automática.',
+    cta: 'Testar Pro grátis',
   },
   business: {
     name: PLAN_DISPLAY_NAMES.business,

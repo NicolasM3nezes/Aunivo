@@ -18,9 +18,10 @@ function daysRemaining(expiresAt: string | null, now: Date): number | null {
 function grantAccess(grant: AccessGrantRow, active: boolean, now: Date): EffectiveAccountAccess {
   return {
     plan: toPlanKey(grant.plan_key), source: grant.grant_type,
-    status: active ? 'active' : 'expired', startsAt: grant.starts_at,
+    status: active ? (grant.grant_type === 'trial' ? 'trialing' : 'active') : 'expired', startsAt: grant.starts_at,
     expiresAt: grant.expires_at, daysRemaining: daysRemaining(grant.expires_at, now),
     isActive: active, isPilot: grant.grant_type === 'pilot', isInternal: grant.grant_type === 'internal',
+    isTrial: grant.grant_type === 'trial',
     hasStripeSubscription: false, access: active ? 'full' : 'restricted',
   }
 }
@@ -36,10 +37,13 @@ export function resolveEffectiveAccountAccess(billing: BillingRow | null, grants
       plan: toPlanKey(billing.access_override_plan), source: 'internal', status: 'active',
       startsAt: null, expiresAt: billing.access_override_expires_at,
       daysRemaining: daysRemaining(billing.access_override_expires_at, now),
-      isActive: true, isPilot: false, isInternal: true,
+      isActive: true, isPilot: false, isInternal: true, isTrial: false,
       hasStripeSubscription, access: 'full',
     }
   }
+
+  const activePilot = grants.find((grant) => grant.grant_type === 'pilot' && isActiveGrant(grant, now))
+  if (activePilot) return { ...grantAccess(activePilot, true, now), hasStripeSubscription }
 
   const inGrace = billing?.subscription_status === 'past_due'
     && Boolean(billing.grace_period_ends_at)
@@ -49,12 +53,15 @@ export function resolveEffectiveAccountAccess(billing: BillingRow | null, grants
       plan: billing.plan_key, source: 'stripe', status: billing.subscription_status,
       startsAt: billing.current_period_start,
       expiresAt: inGrace ? billing.grace_period_ends_at : billing.current_period_end,
-      daysRemaining: null, isActive: true, isPilot: false, isInternal: false,
+      daysRemaining: null, isActive: true, isPilot: false, isInternal: false, isTrial: false,
       hasStripeSubscription, access: inGrace ? 'grace' : 'full',
     }
   }
-  const activePilot = grants.find((grant) => grant.grant_type === 'pilot' && isActiveGrant(grant, now))
-  if (activePilot) return { ...grantAccess(activePilot, true, now), hasStripeSubscription }
+  const activeTrial = grants.find((grant) => grant.grant_type === 'trial' && isActiveGrant(grant, now))
+  if (activeTrial) return { ...grantAccess(activeTrial, true, now), hasStripeSubscription }
+
+  const expiredTrial = grants.find((grant) => grant.grant_type === 'trial' && (grant.status === 'expired' || (grant.status === 'active' && !isFuture(grant.expires_at, now))))
+  if (expiredTrial) return { ...grantAccess(expiredTrial, false, now), hasStripeSubscription }
 
   const expiredPilot = grants.find((grant) => grant.grant_type === 'pilot' && (grant.status === 'expired' || (grant.status === 'active' && !isFuture(grant.expires_at, now))))
   if (expiredPilot) return { ...grantAccess(expiredPilot, false, now), hasStripeSubscription }
@@ -62,7 +69,7 @@ export function resolveEffectiveAccountAccess(billing: BillingRow | null, grants
   return {
     plan: 'free', source: 'none', status: billing?.subscription_status ?? 'none',
     startsAt: null, expiresAt: null, daysRemaining: null, isActive: false,
-    isPilot: false, isInternal: false, hasStripeSubscription, access: 'restricted',
+    isPilot: false, isInternal: false, isTrial: false, hasStripeSubscription, access: 'restricted',
   }
 }
 
@@ -83,11 +90,19 @@ export async function getEffectiveAccountAccess(accountId: string, db: SupabaseC
     console.error('[billing:entitlements]', { message: error?.message, code: error?.code, details: error?.details, hint: error?.hint, accountId })
     throw new Error(`${billingResult.error ? 'Could not load billing' : 'Could not load access grants'}: ${error?.message}`)
   }
-  return resolveEffectiveAccountAccess(
+  const access = resolveEffectiveAccountAccess(
     billingResult.data as BillingRow | null,
     Array.isArray(grantsResult.data) ? grantsResult.data as AccessGrantRow[] : [],
     now,
   )
+  if (access.source === 'trial' && !access.isActive && access.status === 'expired') {
+    const { data: signup, error: expiryError } = await db.from('trial_signups').update({ status: 'trial_expired' }).eq('account_id', accountId).eq('status', 'trial_active').select('id').maybeSingle()
+    if (!expiryError && signup?.id) await db.from('trial_signup_events').insert({ trial_signup_id: signup.id, event_type: 'trial_expired' })
+    const { error: grantError } = await db.from('account_access_grants').update({ status: 'expired' }).eq('account_id', accountId).eq('grant_type', 'trial').eq('status', 'active')
+    if (expiryError && expiryError.code !== '42P01' && expiryError.code !== 'PGRST205') console.error('[billing:trial-expiry]', { accountId, code: expiryError.code })
+    if (grantError && !isMissingAccessGrantsSchemaError(grantError)) console.error('[billing:trial-expiry-grant]', { accountId, code: grantError.code })
+  }
+  return access
 }
 
 export function canOpenStripePortal(access: EffectiveAccountAccess): boolean {
@@ -104,4 +119,16 @@ export async function hasPilotGrantHistory(accountId: string, db: SupabaseClient
 export async function convertActivePilotGrant(db: SupabaseClient, accountId: string, convertedAt = new Date().toISOString()): Promise<void> {
   const { error } = await db.from('account_access_grants').update({ status: 'converted', converted_at: convertedAt }).eq('account_id', accountId).eq('grant_type', 'pilot').eq('status', 'active')
   if (error && !isMissingAccessGrantsSchemaError(error)) throw new Error(`Could not convert pilot grant: ${error.message}`)
+}
+
+export async function convertActiveTrialGrant(db: SupabaseClient, accountId: string, convertedAt = new Date().toISOString()): Promise<void> {
+  const { error } = await db.from('account_access_grants').update({ status: 'converted', converted_at: convertedAt }).eq('account_id', accountId).eq('grant_type', 'trial').in('status', ['active', 'expired'])
+  if (error && !isMissingAccessGrantsSchemaError(error)) throw new Error(`Could not convert trial grant: ${error.message}`)
+
+  const { data: signup, error: signupError } = await db.from('trial_signups').update({ status: 'converted', converted_at: convertedAt }).eq('account_id', accountId).in('status', ['trial_active', 'trial_expired']).select('id').maybeSingle()
+  if (signupError && signupError.code !== '42P01' && signupError.code !== 'PGRST205') throw new Error(`Could not convert trial signup: ${signupError.message}`)
+  if (signup?.id) {
+    const { error: eventError } = await db.from('trial_signup_events').insert({ trial_signup_id: signup.id, event_type: 'subscription_started' })
+    if (eventError && eventError.code !== '42P01' && eventError.code !== 'PGRST205') throw new Error(`Could not record trial conversion: ${eventError.message}`)
+  }
 }

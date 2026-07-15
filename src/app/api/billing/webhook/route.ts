@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { stripeServer, stripeWebhookSecret } from '@/lib/billing/stripe/server'
 import { stripeAccountId, syncStripeSubscription } from '@/lib/billing/stripe/sync'
 import { notifyBillingOwner } from '@/lib/billing/notifications'
-import { convertActivePilotGrant } from '@/lib/billing/access'
+import { convertActivePilotGrant, convertActiveTrialGrant } from '@/lib/billing/access'
 
 export const runtime = 'nodejs'
 
@@ -63,6 +63,7 @@ export async function POST(request: Request) {
           (subscription.status === 'active' || subscription.status === 'trialing')
         ) {
           await convertActivePilotGrant(db, accountId, new Date(event.created * 1000).toISOString())
+          await convertActiveTrialGrant(db, accountId, new Date(event.created * 1000).toISOString())
         }
         if (event.type.startsWith('invoice.')) {
           const invoice = event.data.object as Stripe.Invoice

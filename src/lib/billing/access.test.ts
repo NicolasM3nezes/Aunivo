@@ -8,8 +8,8 @@ const now = new Date('2026-07-13T12:00:00Z')
 function billing(status: SubscriptionStatus = 'free', overrides: Partial<BillingRow> = {}): BillingRow {
   return { account_id: 'account-1', provider_customer_id: null, provider_subscription_id: null, provider_price_id: null, plan_key: 'pro', billing_interval: null, subscription_status: status, current_period_start: null, current_period_end: null, trial_start: null, trial_end: null, trial_used_at: null, cancel_at_period_end: false, canceled_at: null, grace_period_ends_at: null, last_invoice_status: null, last_invoice_paid_at: null, last_payment_failed_at: null, last_provider_event_created_at: null, last_synced_at: null, access_override_plan: null, access_override_expires_at: null, access_override_reason: null, ...overrides }
 }
-function grant(type: 'pilot' | 'internal', overrides: Partial<AccessGrantRow> = {}): AccessGrantRow {
-  return { id: `${type}-1`, account_id: 'account-1', grant_type: type, plan_key: 'pro', status: 'active', starts_at: '2026-07-01T00:00:00Z', expires_at: type === 'pilot' ? '2026-08-01T00:00:00Z' : null, reason: null, created_by: null, created_at: '2026-07-01T00:00:00Z', updated_at: '2026-07-01T00:00:00Z', revoked_at: null, converted_at: null, ...overrides }
+function grant(type: 'pilot' | 'internal' | 'trial', overrides: Partial<AccessGrantRow> = {}): AccessGrantRow {
+  return { id: `${type}-1`, account_id: 'account-1', grant_type: type, plan_key: 'pro', status: 'active', starts_at: '2026-07-01T00:00:00Z', expires_at: type === 'internal' ? null : '2026-08-01T00:00:00Z', reason: null, created_by: null, created_at: '2026-07-01T00:00:00Z', updated_at: '2026-07-01T00:00:00Z', revoked_at: null, converted_at: null, ...overrides }
 }
 
 describe('effective account access resolver', () => {
@@ -21,10 +21,15 @@ describe('effective account access resolver', () => {
   })
   it('expires by date even while status is still active', () => expect(resolveEffectiveAccountAccess(billing(), [grant('pilot', { expires_at: '2026-07-12T00:00:00Z' })], now)).toMatchObject({ source: 'pilot', isActive: false, access: 'restricted', daysRemaining: 0 }))
   it('keeps permanent internal Pro active', () => expect(resolveEffectiveAccountAccess(billing(), [grant('internal')], now)).toMatchObject({ plan: 'pro', source: 'internal', isActive: true }))
-  it('prioritizes internal, then Stripe, then pilot', () => {
+  it('prioritizes internal, pilot, Stripe and self-service trial', () => {
     const paid = billing('active', { provider_subscription_id: 'sub_1' })
     expect(resolveEffectiveAccountAccess(paid, [grant('pilot'), grant('internal')], now).source).toBe('internal')
-    expect(resolveEffectiveAccountAccess(paid, [grant('pilot')], now).source).toBe('stripe')
+    expect(resolveEffectiveAccountAccess(paid, [grant('pilot')], now).source).toBe('pilot')
+    expect(resolveEffectiveAccountAccess(paid, [grant('trial')], now).source).toBe('stripe')
+  })
+  it('grants Pro during the self-service trial and blocks it at expiry', () => {
+    expect(resolveEffectiveAccountAccess(billing(), [grant('trial')], now)).toMatchObject({ plan: 'pro', source: 'trial', isActive: true, isTrial: true })
+    expect(resolveEffectiveAccountAccess(billing(), [grant('trial', { expires_at: '2026-07-13T12:00:00Z' })], now)).toMatchObject({ source: 'trial', status: 'expired', isActive: false })
   })
   it('keeps paid Basic and Pro behavior', () => {
     expect(resolveEffectiveAccountAccess(billing('active', { plan_key: 'free' }), [], now).plan).toBe('free')
