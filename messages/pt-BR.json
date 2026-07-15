@@ -1373,7 +1373,7 @@
       "title": "Campos e etiquetas",
       "description": "Duas formas de organizar contatos: etiquetas coloridas para agrupamento rápido e campos personalizados para dados estruturados.",
       "tagsTitle": "Etiquetas",
-      "tagsDesc": "Colour-coded labels for grouping and filtering contatos.",
+      "tagsDesc": "Etiquetas com código de cores para agrupar e filtrar contatos.",
       "fieldsTitle": "Campos personalizados",
       "fieldsDesc": "Campos de contato extras, como CEP ou origem do lead. Eles aparecem em todos os contatos.",
       "adminRole": "Administrador",
