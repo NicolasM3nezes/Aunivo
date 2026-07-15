@@ -29,6 +29,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
+  title: 'Convite para entrar no Aunivo',
+  description: 'Revise e aceite seu convite para participar de uma equipe no Aunivo.',
   referrer: 'no-referrer',
   // Belt-and-braces against an invite URL ending up in search
   // results if a join page is ever crawled.

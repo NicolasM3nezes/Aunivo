@@ -40,8 +40,14 @@ import {
 } from '@/components/ui/select';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  getMemberRoleLabel,
+  MEMBER_ROLE_OPTIONS,
+  type InvitableMemberRole,
+} from '@/lib/auth/member-roles';
+import { INVITE_EXPIRATION_OPTIONS } from '@/lib/auth/invitation-presentation';
 
-type InviteRole = 'admin' | 'agent' | 'viewer';
+type InviteRole = InvitableMemberRole;
 
 interface InviteMemberDialogProps {
   open: boolean;
@@ -50,12 +56,6 @@ interface InviteMemberDialogProps {
    *  pending-invitations list. */
   onCreated: () => void;
 }
-
-const EXPIRY_OPTIONS = [
-  { value: '1', labelKey: 'days1' },
-  { value: '7', labelKey: 'days7' },
-  { value: '30', labelKey: 'days30' },
-];
 
 // Server caps label at 80 chars (see src/app/api/account/invitations/route.ts).
 // Mirror it on the client so we short-circuit before the round-trip
@@ -113,7 +113,7 @@ export function InviteMemberDialog({
         body: JSON.stringify({
           role,
           expiresInDays: Number(expiry),
-          label: trimmedLabel || undefined,
+          label: trimmedLabel || null,
         }),
       });
 
@@ -122,7 +122,7 @@ export function InviteMemberDialog({
         if (payload.code === 'limit_reached' && payload.maximum !== undefined && payload.plan) {
           toast.error(`Seu plano ${PLAN_DISPLAY_NAMES[payload.plan]} permite até ${payload.maximum} usuários, incluindo convites pendentes.`);
         } else {
-          toast.error(payload.error || 'Failed to create invitation');
+          toast.error(t('errors.create'));
         }
         return;
       }
@@ -146,7 +146,7 @@ export function InviteMemberDialog({
       onCreated();
     } catch (err) {
       console.error('[InviteMemberDialog] create error:', err);
-      toast.error('Could not reach the server. Try again?');
+      toast.error(t('errors.network'));
     } finally {
       setSubmitting(false);
     }
@@ -196,7 +196,7 @@ export function InviteMemberDialog({
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
                 {t.rich('inviteCreatedDesc', {
-                  role: tRoles(result.role),
+                  role: getMemberRoleLabel(result.role, tRoles),
                   days: result.expiresInDays,
                   bold: (chunks: React.ReactNode) => <strong>{chunks}</strong>
                 })}
@@ -283,13 +283,15 @@ export function InviteMemberDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">{tRoles('admin')}</SelectItem>
-                    <SelectItem value="agent">{tRoles('agent')}</SelectItem>
-                    <SelectItem value="viewer">{tRoles('viewer')}</SelectItem>
+                    {MEMBER_ROLE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {getMemberRoleLabel(option.value, tRoles)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  {tRoles(`${role}Hint` as 'adminHint' | 'agentHint' | 'viewerHint')}
+                  {tRoles(MEMBER_ROLE_OPTIONS.find((option) => option.value === role)?.descriptionKey ?? 'agentHint')}
                 </p>
               </div>
 
@@ -303,8 +305,8 @@ export function InviteMemberDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {EXPIRY_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
+                    {INVITE_EXPIRATION_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={String(opt.value)}>
                         {t(opt.labelKey as Parameters<typeof t>[0])}
                       </SelectItem>
                     ))}

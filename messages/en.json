@@ -1,4 +1,40 @@
 {
+  "Invitations": {
+    "accept": {
+      "loading": "Loading invitation...",
+      "title": "You're invited to join {organization}",
+      "rolePrefix": "You'll join as",
+      "validUntilSeparator": ". This invitation is valid until",
+      "sentenceEnd": ".",
+      "button": "Accept invitation",
+      "accepting": "Accepting invitation...",
+      "linkAccount": "Accepting links your account to {organization}.",
+      "emptyAccountCleanup": "If an empty personal account was created during signup, it will be safely removed after linking.",
+      "retry": "Try again",
+      "createAccount": "Create account",
+      "signIn": "Sign in",
+      "signInToContinue": "Sign in to continue",
+      "signedOutDescription": "Create your account or sign in to accept the invitation.",
+      "successTitle": "Invitation accepted successfully.",
+      "successDescription": "You are now part of the {organization} team.",
+      "goToApp": "Go to Aunivo",
+      "errorTitle": "We couldn't accept the invitation.",
+      "errorDescription": "Try again. If the problem continues, request a new invitation.",
+      "conflictTitle": "You can't join {organization} with this account",
+      "conflictDescription": "Your current account contains data or already belongs to another organization. Use another email to accept this invitation.",
+      "conflictAction": "To join {organization}, sign out and create another account with a different email address. The invitation remains valid until it expires.",
+      "staySignedIn": "Stay signed in",
+      "signingOut": "Signing out...",
+      "signOutDifferentEmail": "Sign out and use another email",
+      "signOutError": "We couldn't sign you out. Refresh the page and try again.",
+      "failures": {
+        "not_found": { "title": "This invitation isn't valid.", "description": "The link may be incorrect or no longer exist." },
+        "used": { "title": "This invitation has already been used.", "description": "Sign in to access the organization." },
+        "expired": { "title": "This invitation has expired.", "description": "Request a new invitation from the company administrator." },
+        "server_error": { "title": "We couldn't verify the invitation.", "description": "Try again. If the problem continues, request a new invitation." }
+      }
+    }
+  },
   "LoginPage": {
     "titleAccept": "Sign in to accept",
     "titleWelcome": "Welcome back",
@@ -1285,7 +1321,15 @@
       "removeDialogDesc": "Remove <bold>{name}</bold> from the account? They'll be signed out of this account and given a fresh personal account on their next sign-in. Their login isn't deleted.",
       "cancel": "Cancel",
       "removing": "Removing...",
-      "removeBtn": "Remove member"
+      "removeBtn": "Remove member",
+      "errors": {
+        "loadMembers": "We couldn't load the members.",
+        "loadInvitations": "We couldn't load the invitations.",
+        "updateRole": "We couldn't update the role.",
+        "removeMember": "We couldn't remove the member.",
+        "revokeInvitation": "We couldn't revoke the invitation.",
+        "network": "We couldn't reach the server. Try again."
+      }
     },
     "invite": {
       "inviteCreated": "Invite created",
@@ -1301,7 +1345,9 @@
       "roleLabel": "Role",
       "validForLabel": "Link valid for",
       "days1": "1 day",
+      "days3": "3 days",
       "days7": "7 days",
+      "days14": "14 days",
       "days30": "30 days",
       "labelTitle": "Label",
       "optional": "(optional)",
@@ -1313,7 +1359,8 @@
       "labelTooLong": "Label must be {max} characters or fewer",
       "copied": "Invite link copied",
       "clipboardBlocked": "Clipboard blocked — copy the link manually",
-      "whatsappMessage": "Join {accountName} on Aunivo using this link (valid for {expiresInDays} days): {url}"
+      "whatsappMessage": "You've been invited to join {accountName} on Aunivo. This link is valid for {expiresInDays} days: {url}",
+      "errors": { "create": "We couldn't create the invitation.", "network": "We couldn't reach the server. Try again." }
     },
     "tagsAndFields": {
       "title": "Fields & tags",

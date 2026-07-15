@@ -367,6 +367,7 @@ export function ImportModal({
         account_id: currentAccountId,
         phone: row.normalizedPhone,
         name: row.source.name?.trim() || null,
+        lead_source: null,
         email: row.source.email?.trim() || null,
         company: row.source.company?.trim() || null,
       })
@@ -489,6 +490,7 @@ export function ImportModal({
           name: row.source.name?.trim() || null,
           email: row.source.email?.trim() || null,
           company: row.source.company?.trim() || null,
+          lead_source: null,
         }));
 
         const { data, error } = await supabase

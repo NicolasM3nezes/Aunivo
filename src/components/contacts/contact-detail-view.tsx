@@ -44,6 +44,12 @@ import {
 } from "@/lib/phone";
 import { normalizeError } from "@/lib/errors/normalize-error";
 import {
+  CONTACT_SOURCE_EMPTY_VALUE,
+  CONTACT_SOURCE_OPTIONS,
+  getContactSourceLabel,
+  normalizeContactSourceForDatabase,
+} from "@/lib/contacts/source";
+import {
   findExistingContact,
   isExactMatch,
   isUniqueViolation,
@@ -80,6 +86,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RelatedTasks } from "@/components/tasks/related-tasks";
 
 interface ContactDetailViewProps {
@@ -102,6 +115,7 @@ type ContactRecord = {
   phone: string;
   email: string | null;
   company: string | null;
+  lead_source: string | null;
 };
 
 type DuplicatePhone = {
@@ -116,7 +130,7 @@ type SectionErrors = Record<SectionName, string | null>;
 type CustomValueIdMap = Record<string, string>;
 
 const CONTACT_SELECT =
-  "id, account_id, name, phone, email, company";
+  "id, account_id, name, phone, email, company, lead_source";
 
 const EMPTY_SECTION_ERRORS: SectionErrors = {
   tags: null,
@@ -235,6 +249,7 @@ export function ContactDetailView({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
+  const [leadSource, setLeadSource] = useState("");
   const [savingDetails, setSavingDetails] = useState(false);
   const [checkingDuplicate, setCheckingDuplicate] = useState(false);
   const [duplicatePhone, setDuplicatePhone] =
@@ -282,6 +297,8 @@ export function ContactDetailView({
     setPhone(value.phone ?? "");
     setEmail(value.email ?? "");
     setCompany(value.company ?? "");
+    const normalizedSource = normalizeContactSourceForDatabase(value.lead_source);
+    setLeadSource(normalizedSource ? getContactSourceLabel(normalizedSource) : "");
     setDuplicatePhone(null);
   }, []);
 
@@ -716,6 +733,7 @@ export function ContactDetailView({
     const cleanPhone = phone.trim();
     const cleanEmail = email.trim();
     const cleanCompany = company.trim();
+    const cleanLeadSource = normalizeContactSourceForDatabase(leadSource);
 
     if (!cleanName) {
       toast.error("Informe o nome do contato.");
@@ -752,6 +770,7 @@ export function ContactDetailView({
           phone: normalizePhone(cleanPhone),
           email: cleanEmail || null,
           company: cleanCompany || null,
+          lead_source: cleanLeadSource,
         })
         .eq("id", contactId)
         .eq("account_id", accountId)
@@ -1150,6 +1169,13 @@ export function ContactDetailView({
                           </span>
                         </span>
                       ) : null}
+
+                      <span className="inline-flex min-w-0 items-center gap-1.5">
+                        <ListFilter className="size-3.5 shrink-0" />
+                        <span className="truncate">
+                          {getContactSourceLabel(contact.lead_source)}
+                        </span>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1343,6 +1369,32 @@ export function ContactDetailView({
                             placeholder="contato@empresa.com"
                             autoComplete="email"
                           />
+                        </div>
+
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label htmlFor="contact-detail-source">Origem do contato</Label>
+                          <Select
+                            value={leadSource || CONTACT_SOURCE_EMPTY_VALUE}
+                            onValueChange={(value) =>
+                              setLeadSource(normalizeContactSourceForDatabase(value) ?? "")
+                            }
+                            disabled={savingDetails}
+                          >
+                            <SelectTrigger id="contact-detail-source" className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={CONTACT_SOURCE_EMPTY_VALUE}>Não informado</SelectItem>
+                              {leadSource && !CONTACT_SOURCE_OPTIONS.some((option) => option.value.toLocaleLowerCase("pt-BR") === leadSource.toLocaleLowerCase("pt-BR")) ? (
+                                <SelectItem value={leadSource}>{getContactSourceLabel(leadSource)}</SelectItem>
+                              ) : null}
+                              {CONTACT_SOURCE_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div className="space-y-2">

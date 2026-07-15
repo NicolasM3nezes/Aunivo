@@ -26,7 +26,7 @@ import {
   inviteExpiresAt,
   inviteUrl,
 } from "@/lib/auth/invitations";
-import { isAccountRole } from "@/lib/auth/roles";
+import { isInvitableMemberRole } from "@/lib/auth/member-roles";
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -191,12 +191,12 @@ export async function POST(request: Request) {
       | null;
 
     const role = body?.role;
-    if (!isAccountRole(role) || role === "owner") {
+    if (!isInvitableMemberRole(role)) {
       // The DB CHECK already rejects 'owner', but failing fast
       // here gives a clearer 400 than the eventual constraint
       // violation surfaced as a 500.
       return NextResponse.json(
-        { error: "'role' must be one of admin, agent, viewer" },
+        { error: "Função de convite inválida." },
         { status: 400 },
       );
     }
@@ -215,7 +215,7 @@ export async function POST(request: Request) {
       const trimmed = body.label.trim();
       if (trimmed.length > MAX_LABEL_LEN) {
         return NextResponse.json(
-          { error: `Label must be ${MAX_LABEL_LEN} characters or fewer` },
+          { error: `O rótulo deve ter no máximo ${MAX_LABEL_LEN} caracteres.` },
           { status: 400 },
         );
       }
@@ -238,9 +238,14 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !data) {
-      console.error("[POST /api/account/invitations] insert error:", error);
+      console.error("[invitations:create]", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+      });
       return NextResponse.json(
-        { error: "Failed to create invitation" },
+        { error: "Não foi possível criar o convite." },
         { status: 500 },
       );
     }

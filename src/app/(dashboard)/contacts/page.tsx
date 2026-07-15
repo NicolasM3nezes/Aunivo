@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
 import { formatBrazilianPhone } from '@/lib/phone';
+import { getContactSourceLabel, normalizeContactSourceForDatabase } from '@/lib/contacts/source';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -667,12 +668,12 @@ export default function ContactsPage() {
                     {contact.company || <span className="text-muted-foreground">-</span>}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {contact.lead_source?.trim() ? (
+                    {normalizeContactSourceForDatabase(contact.lead_source) ? (
                       <span
                         className="inline-flex max-w-36 items-center truncate rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
-                        title={contact.lead_source}
+                        title={getContactSourceLabel(contact.lead_source)}
                       >
-                        {contact.lead_source}
+                        {getContactSourceLabel(contact.lead_source)}
                       </span>
                     ) : (
                       <span className="text-xs text-muted-foreground">

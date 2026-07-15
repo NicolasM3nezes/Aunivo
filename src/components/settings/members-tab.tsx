@@ -67,6 +67,7 @@ import { RequireRole } from '@/components/auth/require-role';
 import { useAuth } from '@/hooks/use-auth';
 import { usePresence } from '@/hooks/use-presence';
 import type { AccountRole } from '@/lib/auth/roles';
+import { getMemberRoleLabel } from '@/lib/auth/member-roles';
 import { presenceLabel, summarize } from '@/lib/presence';
 import {
   PRESENCE_DOT_CLASS,
@@ -108,7 +109,7 @@ const EDITABLE_ROLES: { value: AccountRole }[] = [
 function fmtDate(iso: string): string {
   // Match the rest of the dashboard's locale-light formatting.
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString('pt-BR', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -150,8 +151,8 @@ export function MembersTab() {
       ]);
 
       if (!mres.ok) {
-        const payload = await mres.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to load members');
+        await mres.json().catch(() => ({}));
+        toast.error(t('errors.loadMembers'));
         return;
       }
       const mdata = (await mres.json()) as { members: Member[] };
@@ -159,8 +160,8 @@ export function MembersTab() {
 
       if (ires) {
         if (!ires.ok) {
-          const payload = await ires.json().catch(() => ({}));
-          toast.error(payload.error || 'Failed to load invitations');
+          await ires.json().catch(() => ({}));
+          toast.error(t('errors.loadInvitations'));
           return;
         }
         const idata = (await ires.json()) as { invitations: Invitation[] };
@@ -170,11 +171,11 @@ export function MembersTab() {
       }
     } catch (err) {
       console.error('[MembersTab] load error:', err);
-      toast.error('Could not reach the server');
+      toast.error(t('errors.network'));
     } finally {
       setLoading(false);
     }
-  }, [canManageMembers]);
+  }, [canManageMembers, t]);
 
   useEffect(() => {
     void loadEverything();
@@ -209,11 +210,11 @@ export function MembersTab() {
             m.user_id === member.user_id ? { ...m, role: previousRole } : m,
           ),
         );
-        const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to update role');
+        await res.json().catch(() => ({}));
+        toast.error(t('errors.updateRole'));
         return;
       }
-      toast.success(t('updatedToast', { name: member.full_name || t('unnamed'), role: tRoles(nextRole) }));
+      toast.success(t('updatedToast', { name: member.full_name || t('unnamed'), role: getMemberRoleLabel(nextRole, tRoles) }));
     } catch (err) {
       // Same revert on network failure.
       setMembers((prev) =>
@@ -222,7 +223,7 @@ export function MembersTab() {
         ),
       );
       console.error('[MembersTab] role change error:', err);
-      toast.error('Could not reach the server');
+      toast.error(t('errors.network'));
     } finally {
       setPendingMemberAction(null);
     }
@@ -237,8 +238,8 @@ export function MembersTab() {
         { method: 'DELETE' },
       );
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to remove member');
+        await res.json().catch(() => ({}));
+        toast.error(t('errors.removeMember'));
         return;
       }
       toast.success(t('removedToast', { name: removingMember.full_name || t('unnamed') }));
@@ -248,7 +249,7 @@ export function MembersTab() {
       setRemovingMember(null);
     } catch (err) {
       console.error('[MembersTab] remove error:', err);
-      toast.error('Could not reach the server');
+      toast.error(t('errors.network'));
     } finally {
       setPendingMemberAction(null);
     }
@@ -260,15 +261,15 @@ export function MembersTab() {
         method: 'DELETE',
       });
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to revoke invitation');
+        await res.json().catch(() => ({}));
+        toast.error(t('errors.revokeInvitation'));
         return;
       }
       toast.success(t('revokedToast'));
       setInvitations((prev) => prev.filter((i) => i.id !== invite.id));
     } catch (err) {
       console.error('[MembersTab] revoke error:', err);
-      toast.error('Could not reach the server');
+      toast.error(t('errors.network'));
     }
   }
 
@@ -433,7 +434,7 @@ export function MembersTab() {
                         <SelectContent>
                           {EDITABLE_ROLES.map((r) => (
                             <SelectItem key={r.value} value={r.value}>
-                              {tRoles(r.value)}
+                              {getMemberRoleLabel(r.value, tRoles)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -443,7 +444,7 @@ export function MembersTab() {
                         className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium ${roleMeta.className}`}
                       >
                         <RoleIcon className="size-3.5" />
-                        {tRoles(member.role)}
+                        {getMemberRoleLabel(member.role, tRoles)}
                       </span>
                     )}
 
@@ -529,7 +530,7 @@ export function MembersTab() {
                             className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${inviteRoleMeta.className}`}
                           >
                             <InviteRoleIcon className="size-3" />
-                            {tRoles(inv.role)}
+                            {getMemberRoleLabel(inv.role, tRoles)}
                           </span>
                         </div>
                         <p className="mt-0.5 text-xs text-muted-foreground">

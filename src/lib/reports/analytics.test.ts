@@ -33,17 +33,17 @@ describe('buildReport', () => {
 
   it('agrupa origens conhecidas ignorando espaços e capitalização', () => {
     const now = new Date('2026-07-12T12:00:00Z');
-    const contacts = ['whatsapp', 'WhatsApp', ' WHATSAPP ', 'Instagram', 'indicação', null, '   '].map((lead_source) => ({
+    const contacts = ['whatsapp', 'WhatsApp', ' WHATSAPP ', 'Instagram', 'indicação', null, '   ', '__none__'].map((lead_source) => ({
       created_at: '2026-07-12T10:00:00Z', lead_source, is_active: true,
     }));
     const report = buildReport(contacts, [], [], [], '7', now);
     expect(report.sources).toEqual([
       { name: 'WhatsApp', value: 3 },
-      { name: 'Não informado', value: 2 },
+      { name: 'Não informado', value: 3 },
       { name: 'Instagram', value: 1 },
       { name: 'Indicação', value: 1 },
     ]);
-    expect(report.sourceSummary).toEqual({ total: 7, informed: 5, uninformed: 2, coverage: 5 / 7, topName: 'WhatsApp', topValue: 3 });
+    expect(report.sourceSummary).toEqual({ total: 8, informed: 5, uninformed: 3, coverage: 5 / 8, topName: 'WhatsApp', topValue: 3 });
   });
 
   it('preserva origem personalizada e não escolhe Não informado como principal', () => {

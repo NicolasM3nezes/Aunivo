@@ -74,7 +74,12 @@ export async function GET(
   });
 
   if (error) {
-    console.error("[peek] rpc error:", error);
+    console.error("[invitations:peek]", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
     return NextResponse.json(
       { ok: false, reason: "server_error" },
       { status: 500 },

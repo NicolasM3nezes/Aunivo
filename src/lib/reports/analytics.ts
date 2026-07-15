@@ -1,3 +1,10 @@
+import {
+  getContactSourceLabel,
+  normalizeContactSourceKey,
+  UNINFORMED_CONTACT_SOURCE_KEY,
+  UNINFORMED_CONTACT_SOURCE_LABEL,
+} from '@/lib/contacts/source';
+
 export type ReportPeriod = '7' | '30' | 'month' | '90' | 'all';
 
 export type ReportContact = {
@@ -87,26 +94,12 @@ export type ReportData = {
 };
 
 const DAY = 86_400_000;
-const UNINFORMED_SOURCE = 'Não informado';
-
-const KNOWN_SOURCE_LABELS: Record<string, string> = {
-  whatsapp: 'WhatsApp',
-  instagram: 'Instagram',
-  facebook: 'Facebook',
-  google: 'Google',
-  indicação: 'Indicação',
-  site: 'Site',
-  outro: 'Outro',
-};
-
 export function normalizeSourceKey(source: string | null | undefined) {
-  return source?.trim().toLocaleLowerCase('pt-BR') || UNINFORMED_SOURCE;
+  return normalizeContactSourceKey(source);
 }
 
 export function sourceDisplayName(source: string | null | undefined) {
-  const trimmed = source?.trim();
-  if (!trimmed) return UNINFORMED_SOURCE;
-  return KNOWN_SOURCE_LABELS[normalizeSourceKey(trimmed)] ?? trimmed;
+  return getContactSourceLabel(source);
 }
 
 export function getPeriodStart(
@@ -386,7 +379,7 @@ export function buildReport(
     .sort((first, second) => second.value - first.value);
 
   const uninformed =
-    sourceGroups.get(UNINFORMED_SOURCE)?.value ?? 0;
+    sourceGroups.get(UNINFORMED_CONTACT_SOURCE_KEY)?.value ?? 0;
 
   const informed = Math.max(
     0,
@@ -394,7 +387,7 @@ export function buildReport(
   );
 
   const topSource =
-    sources.find((source) => source.name !== UNINFORMED_SOURCE) ??
+    sources.find((source) => source.name !== UNINFORMED_CONTACT_SOURCE_LABEL) ??
     null;
 
   const hasMultiplePipelines =

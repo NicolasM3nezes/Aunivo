@@ -14,6 +14,12 @@ import {
   type ExistingContact,
 } from '@/lib/contacts/dedupe';
 import { isValidBrazilianPhone, normalizePhone } from '@/lib/phone';
+import {
+  CONTACT_SOURCE_EMPTY_VALUE,
+  CONTACT_SOURCE_OPTIONS,
+  getContactSourceLabel,
+  normalizeContactSourceForDatabase,
+} from '@/lib/contacts/source';
 
 import {
   Dialog,
@@ -54,21 +60,6 @@ type ContactWithLeadSource = Contact & {
   lead_source?: string | null;
 };
 
-const EMPTY_SOURCE_VALUE = '__none__';
-
-const CONTACT_SOURCES = [
-  'WhatsApp',
-  'Instagram',
-  'Facebook',
-  'Google',
-  'Site',
-  'Indicação',
-  'Anúncio pago',
-  'Evento',
-  'Ligação',
-  'Outro',
-] as const;
-
 function isValidEmail(value: string): boolean {
   if (!value) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -105,11 +96,11 @@ export function ContactForm({
 
   const sourceOptions = useMemo(() => {
     const normalizedCurrentSource = leadSource.trim();
-    const defaultSources = [...CONTACT_SOURCES] as string[];
+    const defaultSources = CONTACT_SOURCE_OPTIONS.map((option) => option.value) as string[];
 
     if (
       normalizedCurrentSource &&
-      !defaultSources.includes(normalizedCurrentSource)
+      !defaultSources.some((source) => source.toLocaleLowerCase('pt-BR') === normalizedCurrentSource.toLocaleLowerCase('pt-BR'))
     ) {
       return [normalizedCurrentSource, ...defaultSources];
     }
@@ -124,7 +115,8 @@ export function ContactForm({
     setPhone(contact?.phone ?? '');
     setEmail(contact?.email ?? '');
     setCompany(contact?.company ?? '');
-    setLeadSource(currentContact?.lead_source ?? '');
+    const normalizedSource = normalizeContactSourceForDatabase(currentContact?.lead_source);
+    setLeadSource(normalizedSource ? getContactSourceLabel(normalizedSource) : '');
     setSelectedTagIds(contactTags.map((item) => item.tag_id));
     setDuplicate(null);
     setTagsError(false);
@@ -261,7 +253,7 @@ export function ContactForm({
     const cleanPhone = phone.trim();
     const cleanEmail = email.trim();
     const cleanCompany = company.trim();
-    const cleanLeadSource = leadSource.trim();
+    const cleanLeadSource = normalizeContactSourceForDatabase(leadSource);
 
     if (!accountId) {
       toast.error('Sua conta ainda não foi carregada. Atualize a página.');
@@ -310,7 +302,7 @@ export function ContactForm({
         phone: normalizePhone(cleanPhone),
         email: cleanEmail || null,
         company: cleanCompany || null,
-        lead_source: cleanLeadSource || null,
+        lead_source: cleanLeadSource,
       };
 
       let savedContactId: string;
@@ -540,9 +532,9 @@ export function ContactForm({
               <Label htmlFor="contact-lead-source">Origem do contato</Label>
 
               <Select
-                value={leadSource || EMPTY_SOURCE_VALUE}
+                value={leadSource || CONTACT_SOURCE_EMPTY_VALUE}
                 onValueChange={(value) =>
-                  setLeadSource(!value || value === EMPTY_SOURCE_VALUE ? '' : value)
+                  setLeadSource(normalizeContactSourceForDatabase(value) ?? '')
                 }
                 disabled={saving}
               >
@@ -551,13 +543,13 @@ export function ContactForm({
                 </SelectTrigger>
 
                 <SelectContent>
-                  <SelectItem value={EMPTY_SOURCE_VALUE}>
+                  <SelectItem value={CONTACT_SOURCE_EMPTY_VALUE}>
                     Não informado
                   </SelectItem>
 
                   {sourceOptions.map((source) => (
                     <SelectItem key={source} value={source}>
-                      {source}
+                      {getContactSourceLabel(source)}
                     </SelectItem>
                   ))}
                 </SelectContent>

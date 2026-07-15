@@ -37,18 +37,23 @@ function getClientIp(request: Request): string {
 }
 
 function rpcErrorToResponse(err: PostgrestError): NextResponse {
+  console.error("[invitations:accept]", {
+    message: err.message,
+    code: err.code,
+    details: err.details,
+    hint: err.hint,
+  });
   if (err.code === "42501") {
-    return NextResponse.json({ error: err.message }, { status: 401 });
+    return NextResponse.json({ error: "Entre na sua conta para aceitar o convite." }, { status: 401 });
   }
   if (err.code === "22023") {
-    return NextResponse.json({ error: err.message }, { status: 400 });
+    return NextResponse.json({ error: "Este convite não é mais válido." }, { status: 400 });
   }
   if (err.code === "23505") {
-    return NextResponse.json({ error: err.message }, { status: 409 });
+    return NextResponse.json({ error: "Esta conta não pode ser vinculada à organização do convite." }, { status: 409 });
   }
-  console.error("[redeem] unexpected RPC error:", err);
   return NextResponse.json(
-    { error: "Failed to redeem invitation" },
+    { error: "Não foi possível aceitar o convite." },
     { status: 500 },
   );
 }
@@ -64,7 +69,7 @@ export async function POST(
   const { token } = await params;
   if (!token || typeof token !== "string") {
     return NextResponse.json(
-      { error: "Missing invitation token" },
+      { error: "Este convite não é válido." },
       { status: 400 },
     );
   }
@@ -78,7 +83,7 @@ export async function POST(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Entre na sua conta para aceitar o convite." }, { status: 401 });
   }
 
   const { data: accountId, error } = await supabase.rpc("redeem_invitation", {
