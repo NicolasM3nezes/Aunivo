@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { authErrorMessage } from '@/lib/auth/user-message';
+import { trackMetaEvent } from '@/lib/analytics/meta-pixel';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,6 +102,7 @@ function SignupPageInner() {
       return;
     }
 
+    trackMetaEvent('CompleteRegistration');
     setSuccess(true);
     setLoading(false);
   };

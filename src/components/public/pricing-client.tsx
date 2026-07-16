@@ -14,6 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
 import { BILLING_PLANS } from '@/lib/billing/catalog';
+import { trackMetaInitiateCheckout } from '@/lib/analytics/meta-pixel';
 import { PLAN_DISPLAY } from '@/config/plans';
 import type {
   AccountEntitlements,
@@ -63,7 +64,12 @@ export function PricingClient() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ planKey, interval: 'monthly' }),
       });
-      const data = (await response.json()) as { url?: string; error?: string };
+      const data = (await response.json()) as {
+        url?: string;
+        error?: string;
+        portal?: boolean;
+        reused?: boolean;
+      };
       if (!response.ok || !data.url)
         throw new Error(
           data.error === 'STRIPE_SECRET_KEY is required' ||
@@ -71,6 +77,7 @@ export function PricingClient() {
             ? 'O sistema de pagamentos ainda não foi configurado neste ambiente.'
             : (data.error ?? 'Não foi possível iniciar o pagamento.')
         );
+      if (!data.portal && !data.reused) trackMetaInitiateCheckout(planKey);
       window.location.assign(data.url);
     } catch (error) {
       toast.error(

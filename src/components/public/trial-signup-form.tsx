@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Check, Loader2, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { trackMetaEvent } from '@/lib/analytics/meta-pixel'
 import { LEGAL_DOCUMENTS } from '@/config/legal'
 import { BUSINESS_SEGMENTS, MARKETING_CONSENT_VERSION, PRIMARY_GOALS, TEAM_SIZES, formatBrazilianPhone } from '@/lib/trials/signup'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,8 @@ export function TrialSignupForm() {
   const [loading, setLoading] = useState(false)
   const [restoring, setRestoring] = useState(true)
   const firstInput = useRef<HTMLInputElement>(null)
+  const leadTracked = useRef(false)
+  const conversionTracked = useRef(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -70,13 +73,23 @@ export function TrialSignupForm() {
         if (payload?.code === 'EXISTING_USER') setTimeout(() => router.push('/login'), 1200)
         return
       }
-      if (action === 'capture') setStep(2)
+      if (action === 'capture') {
+        if (!leadTracked.current) {
+          trackMetaEvent('Lead')
+          leadTracked.current = true
+        }
+        setStep(2)
+      }
       else if (action === 'company') setStep(3)
       else {
+        if (!conversionTracked.current && payload?.success) {
+          trackMetaEvent('CompleteRegistration')
+          trackMetaEvent('StartTrial')
+          conversionTracked.current = true
+        }
         const { error: signInError } = await createClient().auth.signInWithPassword({ email: form.email.trim().toLowerCase(), password: form.password })
         if (signInError) { setError('Sua conta foi criada. Entre com seu e-mail e senha para continuar.'); setTimeout(() => router.push('/login'), 1500); return }
-        router.push('/dashboard')
-        router.refresh()
+        window.location.assign('/dashboard')
       }
     } catch {
       setError('Não foi possível concluir seu cadastro. Verifique sua conexão e tente novamente.')

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { trackMetaInitiateCheckout } from '@/lib/analytics/meta-pixel'
 import { Button } from '@/components/ui/button'
 
 export default function CheckoutPage() {
@@ -30,8 +31,9 @@ function CheckoutFlow() {
       const response = await fetch('/api/billing/checkout', {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ planKey: plan, interval: 'monthly' }),
       })
-      const payload = (await response.json().catch(() => null)) as { url?: string; error?: string } | null
+      const payload = (await response.json().catch(() => null)) as { url?: string; error?: string; portal?: boolean; reused?: boolean } | null
       if (!response.ok || !payload?.url) throw new Error(payload?.error ?? 'Não foi possível iniciar o pagamento.')
+      if (!payload.portal && !payload.reused) trackMetaInitiateCheckout(plan)
       window.location.replace(payload.url)
     })().catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Não foi possível iniciar o pagamento.'))
   }, [plan])

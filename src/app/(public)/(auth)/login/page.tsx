@@ -68,7 +68,7 @@ function LoginPageInner() {
     } else if (selectedPlan) {
       router.push(`/checkout?plan=${selectedPlan}`);
     } else {
-      router.push("/dashboard");
+      window.location.assign("/dashboard");
     }
   };
 
