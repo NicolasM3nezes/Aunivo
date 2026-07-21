@@ -127,7 +127,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     );
   }
 
-  const displayName = contact.name || contact.phone;
+  const displayName = contact.name || contact.phone || "Contato";
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
@@ -159,15 +159,17 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
           <div className="mt-4 space-y-2">
             <button
               onClick={handleCopyPhone}
+              disabled={!contact.phone}
+              title={!contact.phone ? "Este contato não possui telefone cadastrado" : undefined}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
             >
               <Phone className="h-4 w-4 text-muted-foreground" />
-              <span className="flex-1 text-left">{contact.phone}</span>
-              {copied ? (
+              <span className="flex-1 text-left">{contact.phone || "Não informado"}</span>
+              {contact.phone && copied ? (
                 <Check className="h-3 w-3 text-primary" />
-              ) : (
+              ) : contact.phone ? (
                 <Copy className="h-3 w-3 text-muted-foreground" />
-              )}
+              ) : null}
             </button>
 
             {contact.email && (

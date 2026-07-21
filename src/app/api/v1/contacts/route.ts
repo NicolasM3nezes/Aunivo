@@ -105,10 +105,10 @@ export async function POST(request: Request) {
       return fail('bad_request', 'Request body must be a JSON object', 400);
     }
 
-    const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
-    if (!phone) {
-      return fail('bad_request', "'phone' is required", 400);
+    if (body.phone !== undefined && body.phone !== null && typeof body.phone !== 'string') {
+      return fail('bad_request', "'phone' must be a string or null", 400);
     }
+    const phone = typeof body.phone === 'string' ? body.phone.trim() : null;
 
     const auditUserId = await resolveAuditUserId(ctx.supabase, ctx.accountId);
 

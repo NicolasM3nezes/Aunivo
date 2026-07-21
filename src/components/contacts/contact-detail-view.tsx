@@ -39,8 +39,9 @@ import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/currency";
 import {
   formatBrazilianPhone,
-  isValidBrazilianPhone,
+  isValidOptionalBrazilianPhone,
   normalizePhone,
+  normalizeOptionalPhone,
 } from "@/lib/phone";
 import { normalizeError } from "@/lib/errors/normalize-error";
 import {
@@ -94,6 +95,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RelatedTasks } from "@/components/tasks/related-tasks";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -112,7 +118,7 @@ type ContactRecord = {
   id: string;
   account_id: string;
   name: string | null;
-  phone: string;
+  phone: string | null;
   email: string | null;
   company: string | null;
   lead_source: string | null;
@@ -740,12 +746,7 @@ export function ContactDetailView({
       return;
     }
 
-    if (!cleanPhone) {
-      toast.error("Informe o telefone do contato.");
-      return;
-    }
-
-    if (!isValidBrazilianPhone(cleanPhone)) {
+    if (!isValidOptionalBrazilianPhone(cleanPhone)) {
       toast.error("Informe um telefone válido com DDD.");
       return;
     }
@@ -767,7 +768,7 @@ export function ContactDetailView({
         .from("contacts")
         .update({
           name: cleanName,
-          phone: normalizePhone(cleanPhone),
+          phone: normalizeOptionalPhone(cleanPhone),
           email: cleanEmail || null,
           company: cleanCompany || null,
           lead_source: cleanLeadSource,
@@ -1138,19 +1139,26 @@ export function ContactDetailView({
                     </SheetDescription>
 
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                      <button
-                        type="button"
-                        onClick={() => void copyPhone()}
-                        className="inline-flex items-center gap-1.5 transition-colors hover:text-primary"
-                      >
-                        <Phone className="size-3.5" />
-                        {formatBrazilianPhone(contact.phone)}
-                        {copiedPhone ? (
-                          <Check className="size-3.5 text-primary" />
-                        ) : (
-                          <Copy className="size-3.5" />
-                        )}
-                      </button>
+                      {contact.phone ? (
+                        <button
+                          type="button"
+                          onClick={() => void copyPhone()}
+                          className="inline-flex items-center gap-1.5 transition-colors hover:text-primary"
+                        >
+                          <Phone className="size-3.5" />
+                          {formatBrazilianPhone(contact.phone)}
+                          {copiedPhone ? (
+                            <Check className="size-3.5 text-primary" />
+                          ) : (
+                            <Copy className="size-3.5" />
+                          )}
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Phone className="size-3.5" />
+                          Não informado
+                        </span>
+                      )}
 
                       {contact.email ? (
                         <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -1184,12 +1192,15 @@ export function ContactDetailView({
                   <Button type="button" size="sm" variant="outline" render={<Link href={`/tasks?new=1&contact_id=${contact.id}`} />}>
                     <ListTodo className="size-4" />Nova tarefa
                   </Button>
-                  <Button
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={<Button
   type="button"
   size="sm"
   variant="outline"
   onClick={openWhatsApp}
   aria-label="Abrir conversa no WhatsApp"
+  disabled={!contact.phone}
   className="
     group gap-2
     border-emerald-500/40
@@ -1201,7 +1212,8 @@ export function ContactDetailView({
     dark:text-emerald-400
     dark:hover:text-emerald-400
   "
->
+/>}
+                    >
   <MessageCircle className="size-4" />
 
   <span>Abrir WhatsApp</span>
@@ -1214,7 +1226,13 @@ export function ContactDetailView({
       group-hover:translate-x-0.5
     "
   />
-</Button>
+</TooltipTrigger>
+                    {!contact.phone ? (
+                      <TooltipContent>
+                        Este contato não possui telefone cadastrado
+                      </TooltipContent>
+                    ) : null}
+                  </Tooltip>
 
                   
                 </div>
@@ -1305,10 +1323,7 @@ export function ContactDetailView({
                         </div>
 
                         <div className="space-y-2 sm:col-span-2">
-                          <Label htmlFor="contact-detail-phone">
-                            Telefone{" "}
-                            <span className="text-destructive">*</span>
-                          </Label>
+                          <Label htmlFor="contact-detail-phone">Telefone</Label>
                           <PhoneInput
                             id="contact-detail-phone"
                             value={phone}

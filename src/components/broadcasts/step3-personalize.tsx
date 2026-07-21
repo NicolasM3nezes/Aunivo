@@ -209,7 +209,7 @@ export function Step3Personalize({
         } else if (mapping.type === 'field' && mapping.value) {
           const fieldMap: Record<string, string | undefined> = {
             name: contact.name,
-            phone: contact.phone,
+            phone: contact.phone ?? undefined,
             email: contact.email,
             company: contact.company,
           };
@@ -230,7 +230,7 @@ export function Step3Personalize({
   ]);
 
   const previewLabel = firstContact
-    ? firstContact.name || firstContact.phone
+    ? firstContact.name || firstContact.phone || t('personalize.previewSample')
     : t('personalize.previewSample');
 
   return (

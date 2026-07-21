@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
@@ -49,6 +49,13 @@ describe('serializeContact', () => {
     };
     expect(serializeContact(row).tags).toEqual([]);
   });
+
+  it('serializes a missing phone as null', () => {
+    expect(serializeContact({
+      id: 'c3', phone: null, name: 'No phone', email: null, company: null,
+      avatar_url: null, created_at: 'a', updated_at: 'b',
+    }).phone).toBeNull();
+  });
 });
 
 describe('findOrCreateContact', () => {
@@ -61,5 +68,29 @@ describe('findOrCreateContact', () => {
     await expect(
       findOrCreateContact(noopDb, 'acc', 'user', { phone: 'not-a-number' })
     ).rejects.toBeInstanceOf(ContactError);
+  });
+
+  it('requires a name when phone is empty', async () => {
+    await expect(
+      findOrCreateContact(noopDb, 'acc', 'user', { phone: null })
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('creates a name-only contact with a null phone', async () => {
+    const insert = vi.fn(() => ({
+      select: () => ({
+        single: async () => ({ data: { id: 'c-name-only' }, error: null }),
+      }),
+    }));
+    const db = {
+      from: vi.fn(() => ({ insert })),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      findOrCreateContact(db, 'acc', 'user', { name: 'Maria', phone: '' })
+    ).resolves.toEqual({ id: 'c-name-only', created: true });
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Maria', phone: null })
+    );
   });
 });

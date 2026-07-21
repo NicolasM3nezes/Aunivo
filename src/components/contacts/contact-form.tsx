@@ -13,7 +13,10 @@ import {
   isUniqueViolation,
   type ExistingContact,
 } from '@/lib/contacts/dedupe';
-import { isValidBrazilianPhone, normalizePhone } from '@/lib/phone';
+import {
+  isValidOptionalBrazilianPhone,
+  normalizeOptionalPhone,
+} from '@/lib/phone';
 import {
   CONTACT_SOURCE_EMPTY_VALUE,
   CONTACT_SOURCE_OPTIONS,
@@ -265,12 +268,7 @@ export function ContactForm({
       return;
     }
 
-    if (!cleanPhone) {
-      toast.error('Informe o telefone do contato.');
-      return;
-    }
-
-    if (!isValidBrazilianPhone(cleanPhone)) {
+    if (!isValidOptionalBrazilianPhone(cleanPhone)) {
       toast.error('Informe um telefone válido com DDD.');
       return;
     }
@@ -299,7 +297,7 @@ export function ContactForm({
 
       const payload = {
         name: cleanName,
-        phone: normalizePhone(cleanPhone),
+        phone: normalizeOptionalPhone(cleanPhone),
         email: cleanEmail || null,
         company: cleanCompany || null,
         lead_source: cleanLeadSource,
@@ -450,9 +448,7 @@ export function ContactForm({
             </div>
 
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="contact-phone">
-                Telefone <span className="text-destructive">*</span>
-              </Label>
+              <Label htmlFor="contact-phone">Telefone</Label>
               <PhoneInput
                 id="contact-phone"
                 value={phone}
@@ -463,7 +459,6 @@ export function ContactForm({
                 onBlur={() => void checkDuplicatePhone()}
                 placeholder="(11) 99999-9999"
                 disabled={saving}
-                required
               />
 
               {checkingDuplicate && (

@@ -18,7 +18,7 @@ export const CONTACT_SELECT = '*, contact_tags(tags(*))';
 
 export interface ApiContact {
   id: string;
-  phone: string;
+  phone: string | null;
   name: string | null;
   email: string | null;
   company: string | null;
@@ -45,7 +45,7 @@ export function serializeContact(row: Record<string, unknown>): ApiContact {
   const joins = (row.contact_tags as RawTagJoin[] | undefined) ?? [];
   return {
     id: row.id as string,
-    phone: row.phone as string,
+    phone: (row.phone as string | null) ?? null,
     name: (row.name as string | null) ?? null,
     email: (row.email as string | null) ?? null,
     company: (row.company as string | null) ?? null,
@@ -94,7 +94,7 @@ export async function resolveAuditUserId(
 }
 
 export interface ContactInput {
-  phone: string;
+  phone?: string | null;
   name?: string | null;
   email?: string | null;
   company?: string | null;
@@ -112,16 +112,24 @@ export async function findOrCreateContact(
   auditUserId: string,
   input: ContactInput
 ): Promise<{ id: string; created: boolean }> {
-  const sanitized = sanitizePhoneForMeta(input.phone);
-  if (!isValidE164(sanitized)) {
+  const rawPhone = input.phone?.trim() ?? '';
+  const sanitized = rawPhone ? sanitizePhoneForMeta(rawPhone) : null;
+  if (sanitized && !isValidE164(sanitized)) {
     throw new ContactError(
       "'phone' must be a valid phone number in E.164 format (e.g. +14155550123)",
       400
     );
   }
 
-  const existing = await findExistingContact(db, accountId, sanitized);
-  if (existing) return { id: existing.id, created: false };
+  const normalizedName = input.name?.trim() || null;
+  if (!sanitized && !normalizedName) {
+    throw new ContactError("'name' is required when 'phone' is empty", 400);
+  }
+
+  if (sanitized) {
+    const existing = await findExistingContact(db, accountId, sanitized);
+    if (existing) return { id: existing.id, created: false };
+  }
 
   const { data: created, error } = await db
     .from('contacts')
@@ -129,7 +137,7 @@ export async function findOrCreateContact(
       account_id: accountId,
       user_id: auditUserId,
       phone: sanitized,
-      name: input.name ?? sanitized,
+      name: normalizedName ?? sanitized,
       email: input.email ?? null,
       company: input.company ?? null,
     })
@@ -139,7 +147,7 @@ export async function findOrCreateContact(
   if (error || !created) {
     // Lost a race against a concurrent create — the unique index
     // rejected the duplicate. Re-resolve to the winner.
-    if (isUniqueViolation(error)) {
+    if (sanitized && isUniqueViolation(error)) {
       const raced = await findExistingContact(db, accountId, sanitized);
       if (raced) return { id: raced.id, created: false };
     }

@@ -9,12 +9,27 @@ export function normalizePhone(value: string): string {
   return phoneDigits(value);
 }
 
+export function normalizeOptionalPhone(
+  value: string | null | undefined,
+): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? normalizePhone(trimmed) : null;
+}
+
+export function isValidOptionalBrazilianPhone(
+  value: string | null | undefined,
+): boolean {
+  const trimmed = value?.trim();
+  return !trimmed || isValidBrazilianPhone(trimmed);
+}
+
 export function isValidBrazilianPhone(value: string): boolean {
   const digits = phoneDigits(value);
   return (digits.length === 10 || digits.length === 11) && /^[1-9]{2}[2-9]\d+$/.test(digits);
 }
 
-export function formatBrazilianPhone(value: string): string {
+export function formatBrazilianPhone(value: string | null | undefined): string {
+  if (!value) return '';
   const hadCountryCode = value.trim().startsWith('+55');
   const digits = phoneDigits(value).slice(0, 11);
   if (!digits) return '';

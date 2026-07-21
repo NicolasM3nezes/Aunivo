@@ -16,6 +16,7 @@ import {
   resolveAuditUserId,
   ContactError,
 } from '@/lib/api/v1/contacts';
+import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
 
 export async function GET(
   request: Request,
@@ -64,6 +65,21 @@ export async function PATCH(
         updates[field] = value;
       } else {
         return fail('bad_request', `'${field}' must be a string or null`, 400);
+      }
+    }
+
+    if ('phone' in body) {
+      const value = body.phone;
+      if (value === null || (typeof value === 'string' && !value.trim())) {
+        updates.phone = null;
+      } else if (typeof value === 'string') {
+        const sanitized = sanitizePhoneForMeta(value.trim());
+        if (!isValidE164(sanitized)) {
+          return fail('bad_request', "'phone' must be a valid phone number in E.164 format", 400);
+        }
+        updates.phone = sanitized;
+      } else {
+        return fail('bad_request', "'phone' must be a string or null", 400);
       }
     }
 
