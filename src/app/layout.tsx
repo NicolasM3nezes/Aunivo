@@ -1,11 +1,11 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata, Viewport } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
-import { Inter } from "next/font/google";
-import Script from "next/script";
-import "./globals.css";
-import { ThemeProvider } from "@/hooks/use-theme";
-import { ThemedToaster } from "@/components/themed-toaster";
+import { Inter } from 'next/font/google';
+import Script from 'next/script';
+import './globals.css';
+import { ThemeProvider } from '@/hooks/use-theme';
+import { ThemedToaster } from '@/components/themed-toaster';
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -13,42 +13,42 @@ import {
   MODES,
   STORAGE_KEY,
   THEME_IDS,
-} from "@/lib/themes";
+} from '@/lib/themes';
 
 const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
+  variable: '--font-sans',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.aunivo.com.br"),
+  metadataBase: new URL('https://www.aunivo.com.br'),
 
-  title: "Aunivo — CRM simples para pequenas empresas",
+  title: 'Aunivo — CRM simples para pequenas empresas',
 
   description:
-    "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
+    'Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.',
 
   openGraph: {
-    type: "website",
-    locale: "pt_BR",
-    url: "/",
-    siteName: "Aunivo",
-    title: "Aunivo — CRM simples para pequenas empresas",
+    type: 'website',
+    locale: 'pt_BR',
+    url: '/',
+    siteName: 'Aunivo',
+    title: 'Aunivo — CRM simples para pequenas empresas',
     description:
-      "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
+      'Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.',
   },
 
   twitter: {
-    card: "summary",
-    title: "Aunivo — CRM simples para pequenas empresas",
+    card: 'summary',
+    title: 'Aunivo — CRM simples para pequenas empresas',
     description:
-      "Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.",
+      'Organize seus clientes, acompanhe negociações e mantenha cada próximo passo sob controle.',
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#020617",
-  colorScheme: "dark light",
+  themeColor: '#fcfcfd',
+  colorScheme: 'light',
 };
 
 // Inline boot script — runs before React hydrates so the user's
@@ -75,10 +75,17 @@ const THEME_BOOT_SCRIPT = `
     var MODE_DEFAULT = ${JSON.stringify(DEFAULT_MODE)};
     var MODES = ${JSON.stringify(MODES)};
     var savedMode = localStorage.getItem(MODE_KEY);
-    d.dataset.mode = MODES.indexOf(savedMode) !== -1 ? savedMode : MODE_DEFAULT;
+    if (!savedMode || savedMode === "system") {
+      savedMode = MODE_DEFAULT;
+      localStorage.setItem(MODE_KEY, savedMode);
+    }
+    var mode = MODES.indexOf(savedMode) !== -1 ? savedMode : MODE_DEFAULT;
+    d.dataset.mode = mode;
+    d.classList.toggle("dark", mode === "dark");
   } catch (_e) {
     d.dataset.theme = ${JSON.stringify(DEFAULT_THEME)};
     d.dataset.mode = ${JSON.stringify(DEFAULT_MODE)};
+    d.classList.remove("dark");
   }
 })();
 `;
@@ -113,7 +120,7 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
         />
       </head>
-      <body className="min-h-full bg-background text-foreground font-sans">
+      <body className="bg-background text-foreground min-h-full font-sans">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
             {children}

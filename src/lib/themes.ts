@@ -14,43 +14,47 @@
  */
 
 export const THEME_IDS = [
-  "violet",
-  "emerald",
-  "cobalt",
-  "amber",
-  "rose",
+  'violet',
+  'emerald',
+  'cobalt',
+  'amber',
+  'rose',
 ] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
 
-export const DEFAULT_THEME: ThemeId = "violet";
+export const DEFAULT_THEME: ThemeId = 'violet';
 
-export const STORAGE_KEY = "wacrm.theme";
+export const STORAGE_KEY = 'wacrm.theme';
 
 /**
  * MODE — the light/dark dimension, orthogonal to the accent theme.
  *
  * The CSS variables live in `src/app/globals.css` under
  * `html[data-mode="..."]` blocks (neutral surfaces only). Applied
- * at runtime via `document.documentElement.dataset.mode`. Dark is
- * the historical default and stays the app's identity; light is the
- * opt-in eye-strain-friendly alternative.
+ * at runtime via `document.documentElement.dataset.mode`. Light is
+ * always the default; dark is only applied after an explicit choice.
  *
  * Persisted under its own localStorage key so it composes freely
  * with the accent choice (you can run Violet-light or Violet-dark).
  */
-export const MODES = ["light", "dark"] as const;
+export const MODES = ['light', 'dark'] as const;
 
 export type Mode = (typeof MODES)[number];
 
-export const DEFAULT_MODE: Mode = "dark";
+export const DEFAULT_MODE: Mode = 'light';
 
-export const MODE_STORAGE_KEY = "wacrm.mode";
+export const MODE_STORAGE_KEY = 'wacrm.mode';
 
 export function isMode(value: unknown): value is Mode {
   return (
-    typeof value === "string" && (MODES as ReadonlyArray<string>).includes(value)
+    typeof value === 'string' &&
+    (MODES as ReadonlyArray<string>).includes(value)
   );
+}
+
+export function resolveMode(value: unknown): Mode {
+  return isMode(value) ? value : DEFAULT_MODE;
 }
 
 export interface ThemeMeta {
@@ -68,40 +72,40 @@ export interface ThemeMeta {
 
 export const THEMES: ReadonlyArray<ThemeMeta> = [
   {
-    id: "violet",
-    name: "Violet",
-    tagline: "The default — confident, slightly playful.",
-    swatch: "oklch(0.526 0.247 293)",
+    id: 'violet',
+    name: 'Violet',
+    tagline: 'The default — confident, slightly playful.',
+    swatch: 'oklch(0.526 0.247 293)',
   },
   {
-    id: "emerald",
-    name: "Emerald",
-    tagline: "Growth-coded, nods at messaging without copying WhatsApp green.",
-    swatch: "oklch(0.62 0.16 162)",
+    id: 'emerald',
+    name: 'Emerald',
+    tagline: 'Growth-coded, nods at messaging without copying WhatsApp green.',
+    swatch: 'oklch(0.62 0.16 162)',
   },
   {
-    id: "cobalt",
-    name: "Cobalt",
-    tagline: "Clean B2B-SaaS blue — calm and product-y.",
-    swatch: "oklch(0.585 0.2 254)",
+    id: 'cobalt',
+    name: 'Cobalt',
+    tagline: 'Clean B2B-SaaS blue — calm and product-y.',
+    swatch: 'oklch(0.585 0.2 254)',
   },
   {
-    id: "amber",
-    name: "Amber",
-    tagline: "Warm and friendly — feels good for SMB teams.",
-    swatch: "oklch(0.745 0.16 65)",
+    id: 'amber',
+    name: 'Amber',
+    tagline: 'Warm and friendly — feels good for SMB teams.',
+    swatch: 'oklch(0.745 0.16 65)',
   },
   {
-    id: "rose",
-    name: "Rose",
-    tagline: "Bold and modern — D2C, creator-economy, lifestyle.",
-    swatch: "oklch(0.645 0.22 16)",
+    id: 'rose',
+    name: 'Rose',
+    tagline: 'Bold and modern — D2C, creator-economy, lifestyle.',
+    swatch: 'oklch(0.645 0.22 16)',
   },
 ];
 
 export function isThemeId(value: unknown): value is ThemeId {
   return (
-    typeof value === "string" &&
+    typeof value === 'string' &&
     (THEME_IDS as ReadonlyArray<string>).includes(value)
   );
 }

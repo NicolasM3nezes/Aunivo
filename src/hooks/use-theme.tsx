@@ -1,13 +1,12 @@
-"use client";
+'use client';
 
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
-} from "react";
+} from 'react';
 
 import {
   DEFAULT_MODE,
@@ -18,24 +17,7 @@ import {
   isThemeId,
   type Mode,
   type ThemeId,
-} from "@/lib/themes";
-
-/**
- * ThemeProvider — wraps the whole app, owns the two theming axes:
- *   • `theme` — the accent color (`data-theme` on <html>)
- *   • `mode`  — light / dark (`data-mode` on <html>)
- * The two are independent, so any accent renders in either mode.
- *
- * The boot script in `src/app/layout.tsx` has already applied both
- * `data-theme` and `data-mode` before React hydrates, so by the time
- * this Provider mounts the page is already painted correctly. We just
- * read what's there and keep it in sync going forward.
- *
- * Persistence is localStorage only (device-scoped). A future
- * follow-up could mirror to `profiles.preferences` for cross-device
- * sync, but a per-device choice is also defensible — your phone may
- * deserve a different theme than your laptop.
- */
+} from '@/lib/themes';
 
 interface ThemeContextValue {
   theme: ThemeId;
@@ -46,111 +28,118 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
+const THEME_CHANGE_EVENT = 'aunivo-theme-change';
 
-function readInitialTheme(): ThemeId {
-  if (typeof window === "undefined") return DEFAULT_THEME;
-  // Whatever the boot script applied is the truth. Fall back to
-  // localStorage / default if for some reason the attribute is missing
-  // (e.g. someone bypassed the boot script in a custom layout).
-  const fromAttr = document.documentElement.dataset.theme;
-  if (isThemeId(fromAttr)) return fromAttr;
+function applyModeToDocument(mode: Mode) {
+  document.documentElement.dataset.mode = mode;
+  document.documentElement.classList.toggle('dark', mode === 'dark');
+}
+
+function readTheme(): ThemeId {
+  const fromAttribute = document.documentElement.dataset.theme;
+  if (isThemeId(fromAttribute)) return fromAttribute;
+
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (isThemeId(stored)) return stored;
   } catch {
-    // localStorage can throw in private-browsing / sandboxed contexts.
+    // localStorage can be unavailable in private or sandboxed contexts.
   }
   return DEFAULT_THEME;
 }
 
-function readInitialMode(): Mode {
-  if (typeof window === "undefined") return DEFAULT_MODE;
-  const fromAttr = document.documentElement.dataset.mode;
-  if (isMode(fromAttr)) return fromAttr;
+function readMode(): Mode {
+  const fromAttribute = document.documentElement.dataset.mode;
+  if (isMode(fromAttribute)) return fromAttribute;
+
   try {
     const stored = localStorage.getItem(MODE_STORAGE_KEY);
     if (isMode(stored)) return stored;
   } catch {
-    // localStorage can throw in private-browsing / sandboxed contexts.
+    // localStorage can be unavailable in private or sandboxed contexts.
   }
   return DEFAULT_MODE;
 }
 
+function subscribe(onStoreChange: () => void) {
+  function onStorage(event: StorageEvent) {
+    if (event.key === STORAGE_KEY) {
+      document.documentElement.dataset.theme = isThemeId(event.newValue)
+        ? event.newValue
+        : DEFAULT_THEME;
+      onStoreChange();
+      return;
+    }
+
+    if (event.key === MODE_STORAGE_KEY) {
+      const nextMode = isMode(event.newValue) ? event.newValue : DEFAULT_MODE;
+      applyModeToDocument(nextMode);
+
+      if (event.newValue === 'system') {
+        try {
+          localStorage.setItem(MODE_STORAGE_KEY, DEFAULT_MODE);
+        } catch {
+          // The DOM still receives the safe default when storage is blocked.
+        }
+      }
+      onStoreChange();
+    }
+  }
+
+  window.addEventListener('storage', onStorage);
+  window.addEventListener(THEME_CHANGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener(THEME_CHANGE_EVENT, onStoreChange);
+  };
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeId>(readInitialTheme);
-  const [mode, setModeState] = useState<Mode>(readInitialMode);
+  const theme = useSyncExternalStore(subscribe, readTheme, () => DEFAULT_THEME);
+  const mode = useSyncExternalStore(subscribe, readMode, () => DEFAULT_MODE);
 
   const setTheme = useCallback((next: ThemeId) => {
-    setThemeState(next);
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.theme = next;
-    }
+    document.documentElement.dataset.theme = next;
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {
-      // Same private-browsing edge case as above; the in-memory state
-      // still updates so the current tab works for the session.
+      // The current tab still updates when persistence is unavailable.
     }
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   }, []);
 
   const setMode = useCallback((next: Mode) => {
-    setModeState(next);
-    if (typeof document !== "undefined") {
-      document.documentElement.dataset.mode = next;
-    }
+    applyModeToDocument(next);
     try {
       localStorage.setItem(MODE_STORAGE_KEY, next);
     } catch {
-      // Same private-browsing edge case as above.
+      // The current tab still updates when persistence is unavailable.
     }
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
   }, []);
 
   const toggleMode = useCallback(() => {
-    setMode(mode === "dark" ? "light" : "dark");
+    setMode(mode === 'dark' ? 'light' : 'dark');
   }, [mode, setMode]);
 
-  // Sync from other tabs — change theme or mode in tab A, tab B
-  // catches up without a refresh.
-  useEffect(() => {
-    function onStorage(e: StorageEvent) {
-      if (e.key === STORAGE_KEY) {
-        if (isThemeId(e.newValue) && e.newValue !== theme) {
-          setThemeState(e.newValue);
-          document.documentElement.dataset.theme = e.newValue;
-        }
-        return;
-      }
-      if (e.key === MODE_STORAGE_KEY) {
-        if (isMode(e.newValue) && e.newValue !== mode) {
-          setModeState(e.newValue);
-          document.documentElement.dataset.mode = e.newValue;
-        }
-      }
-    }
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [theme, mode]);
-
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, mode, setMode, toggleMode }}>
+    <ThemeContext.Provider
+      value={{ theme, setTheme, mode, setMode, toggleMode }}
+    >
       {children}
     </ThemeContext.Provider>
   );
 }
 
 export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) {
-    // Fallback for components rendered outside the provider — return
-    // no-op setters so callers don't crash. The boot script still
-    // applied the right CSS attributes, so visually the page is fine.
-    return {
-      theme: DEFAULT_THEME,
-      setTheme: () => {},
-      mode: DEFAULT_MODE,
-      setMode: () => {},
-      toggleMode: () => {},
-    };
-  }
-  return ctx;
+  const context = useContext(ThemeContext);
+  if (context) return context;
+
+  return {
+    theme: DEFAULT_THEME,
+    setTheme: () => {},
+    mode: DEFAULT_MODE,
+    setMode: () => {},
+    toggleMode: () => {},
+  };
 }
