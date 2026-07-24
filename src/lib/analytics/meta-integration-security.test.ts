@@ -19,7 +19,17 @@ describe('Meta analytics integration boundaries', () => {
   it('does not complete registration or start trial in the landing form', () => {
     expect(signup).not.toMatch(/CompleteRegistration|StartTrial/)
     expect(callback).toContain("eventName: 'CompleteRegistration'")
-    expect(callback).toContain("eventName: 'StartTrial'")
+    expect(callback).toContain('sendMetaStartTrial(db')
+  })
+
+  it('uses the centralized positive BRL StartTrial payload on the server', () => {
+    const config = read('src/lib/analytics/meta-config.ts')
+    const conversions = read('src/lib/analytics/meta-conversions.ts')
+    expect(config).toContain('value: 39.90')
+    expect(config).toContain("currency: 'BRL'")
+    expect(conversions).toContain('customData: metaStartTrialParameters()')
+    expect(conversions).toContain('eventId = `trial:${input.trialId}`')
+    expect(callback).not.toMatch(/StartTrial[\s\S]{0,300}value:\s*0/)
   })
 
   it('sources paid conversions from trusted Stripe objects', () => {

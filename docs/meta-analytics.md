@@ -53,3 +53,13 @@ WhatsApp, não o Pixel. A integração reconhece
 `window.__aunivoAnalyticsConsent = 'denied'`, mas um CMP/banner e a atualização
 da Política de Cookies precisam de aprovação visual/jurídica antes de ativar o
 Pixel em jurisdições que exijam consentimento prévio.
+
+## StartTrial
+
+`StartTrial` é enviado pela Conversions API depois da ativação confirmada do
+grant de 14 dias. Seu valor de referência comercial é numérico (`39.90`) e a
+moeda é `BRL`; isso não representa receita recebida. O `event_id`
+`trial:<trial_signup_id>` e o ledger impedem repetição em callback, recuperação
+de ativação, atualização ou novo login. A função equivalente do Pixel está
+tipada e usa o mesmo payload, mas não possui ponto de disparo enquanto a CAPI
+for a fonte principal.

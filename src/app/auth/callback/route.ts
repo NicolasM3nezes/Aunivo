@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { createClient } from '@/lib/supabase/server'
-import { sendMetaConversion } from '@/lib/analytics/meta-conversions'
+import { sendMetaConversion, sendMetaStartTrial } from '@/lib/analytics/meta-conversions'
 
 export const runtime = 'nodejs'
 
@@ -69,16 +69,10 @@ export async function GET(request: NextRequest) {
         email: user.email,
         customData: { content_name: 'Cadastro Aunivo', status: 'completed', value: 0, currency: 'BRL' },
       }),
-      sendMetaConversion(db, {
-        eventName: 'StartTrial',
-        eventId: `trial:${signup.id}`,
-        externalReference: signup.id,
+      sendMetaStartTrial(db, {
+        trialId: signup.id,
         eventSourceUrl: sourceUrl,
         email: user.email,
-        customData: {
-          content_name: 'Teste Pro Aunivo', content_category: 'Free Trial',
-          content_ids: ['aunivo-pro-trial'], value: 0, currency: 'BRL', predicted_ltv: 0,
-        },
       }),
     ])
     return redirectTo(request, '/dashboard')

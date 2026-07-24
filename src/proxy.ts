@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { isV1DisabledApi, isV1DisabledPage } from '@/config/features'
 import { getEffectiveAccountAccess } from '@/lib/billing/access'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
+import { sendMetaStartTrial } from '@/lib/analytics/meta-conversions'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -157,6 +158,11 @@ export async function proxy(request: NextRequest) {
         if (!activationError) {
           const result = Array.isArray(activated) ? activated[0] : activated
           profile = result?.account_id ? { account_id: result.account_id } : null
+          await sendMetaStartTrial(db, {
+            trialId: pending.id,
+            email: user.email,
+            eventSourceUrl: `${request.nextUrl.origin}/auth/callback`,
+          })
         } else {
           console.error('[proxy] erro ao finalizar ativação confirmada', { userId: user.id, code: activationError.code })
         }

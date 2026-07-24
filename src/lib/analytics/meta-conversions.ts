@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { MetaEventParameters, MetaStandardEvent } from './meta-types'
+import { metaStartTrialParameters, META_ANALYTICS_CONFIG, validateMetaMonetaryEvent } from './meta-config'
 
 type ServerConversion = {
   eventName: MetaStandardEvent
@@ -83,4 +84,35 @@ export async function sendMetaConversion(db: SupabaseClient, event: ServerConver
     console.warn('[analytics:meta-server] falha de envio', { eventName: event.eventName })
     return 'failed'
   }
+}
+
+export async function sendMetaStartTrial(
+  db: SupabaseClient,
+  input: { trialId: string; email?: string | null; eventSourceUrl: string },
+): Promise<'sent' | 'duplicate' | 'not_configured' | 'failed'> {
+  const eventId = `trial:${input.trialId}`
+  const { value } = META_ANALYTICS_CONFIG.trial
+  const { currency } = META_ANALYTICS_CONFIG
+  console.info('[meta:start-trial] Preparando evento', { eventId, value, currency, reference: input.trialId })
+  if (!validateMetaMonetaryEvent(value, currency)) {
+    console.warn('[meta:start-trial] Parâmetros inválidos', { eventId, value, currency })
+    return 'failed'
+  }
+  const result = await sendMetaConversion(db, {
+    eventName: 'StartTrial',
+    eventId,
+    externalReference: input.trialId,
+    eventSourceUrl: input.eventSourceUrl,
+    email: input.email,
+    customData: metaStartTrialParameters(),
+  })
+  const messages = {
+    sent: 'Evento enviado',
+    duplicate: 'Evento já processado',
+    not_configured: 'Falha no envio',
+    failed: 'Falha no envio',
+  } as const
+  const log = result === 'failed' ? console.warn : console.info
+  log(`[meta:start-trial] ${messages[result]}`, { eventId, value, currency, status: result, reference: input.trialId })
+  return result
 }

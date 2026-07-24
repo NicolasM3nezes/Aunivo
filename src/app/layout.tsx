@@ -4,10 +4,14 @@ import { getLocale, getMessages } from 'next-intl/server';
 import { Inter } from 'next/font/google';
 import Script from 'next/script';
 import { Suspense } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+
 import './globals.css';
+
 import { ThemeProvider } from '@/hooks/use-theme';
 import { ThemedToaster } from '@/components/themed-toaster';
 import { MetaPixel } from '@/components/analytics/meta-pixel';
+
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -53,41 +57,44 @@ export const viewport: Viewport = {
   colorScheme: 'light',
 };
 
-// Inline boot script — runs before React hydrates so the user's
-// chosen accent (data-theme) AND mode (data-mode) are on the <html>
-// element before first paint. Without this every page load flashes
-// the server-rendered defaults for a frame before the React tree
-// mounts and applies the picked values.
-//
-// Kept dependency-free (no imports, no JSX) — must be a string the
-// browser can run as a single <script>. Knowledge of valid ids is
-// sourced from the THEME_IDS / MODES constants so adding one doesn't
-// silently break the boot path.
+// Executado antes da hidratação do React para aplicar o tema e o modo
+// salvos no localStorage antes da primeira renderização visual.
 const THEME_BOOT_SCRIPT = `
 (function(){
   var d = document.documentElement;
+
   try {
     var THEME_KEY = ${JSON.stringify(STORAGE_KEY)};
     var THEME_DEFAULT = ${JSON.stringify(DEFAULT_THEME)};
     var THEMES = ${JSON.stringify(THEME_IDS)};
     var savedTheme = localStorage.getItem(THEME_KEY);
-    d.dataset.theme = THEMES.indexOf(savedTheme) !== -1 ? savedTheme : THEME_DEFAULT;
+
+    d.dataset.theme =
+      THEMES.indexOf(savedTheme) !== -1
+        ? savedTheme
+        : THEME_DEFAULT;
 
     var MODE_KEY = ${JSON.stringify(MODE_STORAGE_KEY)};
     var MODE_DEFAULT = ${JSON.stringify(DEFAULT_MODE)};
     var MODES = ${JSON.stringify(MODES)};
     var savedMode = localStorage.getItem(MODE_KEY);
-    if (!savedMode || savedMode === "system") {
+
+    if (!savedMode || savedMode === 'system') {
       savedMode = MODE_DEFAULT;
       localStorage.setItem(MODE_KEY, savedMode);
     }
-    var mode = MODES.indexOf(savedMode) !== -1 ? savedMode : MODE_DEFAULT;
+
+    var mode =
+      MODES.indexOf(savedMode) !== -1
+        ? savedMode
+        : MODE_DEFAULT;
+
     d.dataset.mode = mode;
-    d.classList.toggle("dark", mode === "dark");
+    d.classList.toggle('dark', mode === 'dark');
   } catch (_e) {
     d.dataset.theme = ${JSON.stringify(DEFAULT_THEME)};
     d.dataset.mode = ${JSON.stringify(DEFAULT_MODE)};
-    d.classList.remove("dark");
+    d.classList.remove('dark');
   }
 })();
 `;
@@ -106,32 +113,32 @@ export default async function RootLayout({
       data-theme={DEFAULT_THEME}
       data-mode={DEFAULT_MODE}
       className={`${inter.variable} h-full antialiased`}
-      // The `theme-boot` script below rewrites `data-theme` and
-      // `data-mode` on <html> from localStorage before React hydrates,
-      // so for any non-default choice the client DOM intentionally
-      // differs from the server-rendered defaults. suppressHydration-
-      // Warning silences the expected mismatch — it only applies to
-      // this element's own attributes, so genuine mismatches in
-      // children still surface.
       suppressHydrationWarning
     >
       <head>
         <Script
           id="theme-boot"
           strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
+          dangerouslySetInnerHTML={{
+            __html: THEME_BOOT_SCRIPT,
+          }}
         />
       </head>
+
       <body className="bg-background text-foreground min-h-full font-sans">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
             {children}
+
             <Suspense fallback={null}>
               <MetaPixel />
             </Suspense>
+
             <ThemedToaster />
           </ThemeProvider>
         </NextIntlClientProvider>
+
+        <SpeedInsights />
       </body>
     </html>
   );

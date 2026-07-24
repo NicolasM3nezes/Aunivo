@@ -1,5 +1,6 @@
 import { BILLING_PLANS } from '@/lib/billing/catalog'
 import type { MetaEventOptions, MetaEventParameters, MetaStandardEvent } from './meta-types'
+import { metaStartTrialParameters, META_ANALYTICS_CONFIG, validateMetaMonetaryEvent } from './meta-config'
 
 export function metaEventId(prefix: string): string {
   const id = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -44,10 +45,12 @@ export const trackCompleteRegistration = (eventID: string) => trackMetaEvent('Co
   content_name: 'Cadastro Aunivo', status: 'completed', currency: 'BRL', value: 0,
 }, { eventID })
 
-export const trackStartTrial = (eventID: string) => trackMetaEvent('StartTrial', {
-  ...content('Teste Pro Aunivo', 'Free Trial', ['aunivo-pro-trial']),
-  value: 0, currency: 'BRL', predicted_ltv: 0,
-}, { eventID })
+export function trackStartTrial(eventID: string): void {
+  if (!validateMetaMonetaryEvent(META_ANALYTICS_CONFIG.trial.value, META_ANALYTICS_CONFIG.currency)) return
+  trackMetaEvent('StartTrial', metaStartTrialParameters(), { eventID })
+}
+
+export const trackMetaStartTrial = trackStartTrial
 
 export function paidPlanParameters(plan: 'free' | 'pro'): MetaEventParameters {
   const definition = BILLING_PLANS[plan]
