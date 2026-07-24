@@ -1,16 +1,38 @@
 import type Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
-import { stripeServer, stripeWebhookSecret } from '@/lib/billing/stripe/server'
+import { appUrl, stripeServer, stripeWebhookSecret } from '@/lib/billing/stripe/server'
 import { stripeAccountId, syncStripeSubscription } from '@/lib/billing/stripe/sync'
 import { notifyBillingOwner } from '@/lib/billing/notifications'
 import { convertActivePilotGrant, convertActiveTrialGrant } from '@/lib/billing/access'
+import { sendMetaConversion } from '@/lib/analytics/meta-conversions'
 
 export const runtime = 'nodejs'
 
 async function accountForCustomer(customerId: string) {
   const { data } = await supabaseAdmin().from('account_billing').select('account_id').eq('provider_customer_id', customerId).maybeSingle()
   return data?.account_id as string | undefined
+}
+
+async function ownerEmail(accountId: string): Promise<string | null> {
+  const db = supabaseAdmin()
+  const { data: account } = await db.from('accounts').select('owner_user_id').eq('id', accountId).maybeSingle()
+  if (!account?.owner_user_id) return null
+  const { data: profile } = await db.from('profiles').select('email').eq('user_id', account.owner_user_id).maybeSingle()
+  return profile?.email ?? null
+}
+
+function paidContent(planKey: string | undefined, value: number, currency: string) {
+  const plan = planKey === 'free' ? 'basic' : 'pro'
+  return {
+    content_name: `Plano ${plan === 'basic' ? 'Basic' : 'Pro'} Aunivo`,
+    content_category: 'Paid Subscription',
+    content_ids: [`aunivo-${plan}`],
+    content_type: 'product',
+    num_items: 1,
+    value,
+    currency: currency.toUpperCase(),
+  }
 }
 
 async function subscriptionFromEvent(event: Stripe.Event): Promise<Stripe.Subscription | null> {
@@ -58,6 +80,34 @@ export async function POST(request: Request) {
         const accountId = metadataAccount ?? customerAccount
         if (!accountId || (metadataAccount && customerAccount && metadataAccount !== customerAccount)) throw new Error('Stripe customer/account association is invalid')
         await syncStripeSubscription(db, accountId, subscription, event.created)
+        const email = await ownerEmail(accountId)
+        const sourceUrl = `${appUrl()}/settings?tab=billing`
+        const planKey = subscription.metadata.plan_key
+        if (event.type === 'checkout.session.completed') {
+          const session = event.data.object as Stripe.Checkout.Session
+          if (session.payment_status === 'paid' && session.id) {
+            const value = Number(session.amount_total ?? 0) / 100
+            const currency = session.currency ?? 'brl'
+            await sendMetaConversion(db, {
+              eventName: 'AddPaymentInfo',
+              eventId: `payment-info:${session.id}`,
+              externalReference: session.id,
+              eventSourceUrl: sourceUrl,
+              email,
+              eventTime: event.created,
+              customData: paidContent(planKey, value, currency),
+            })
+            await sendMetaConversion(db, {
+              eventName: 'Subscribe',
+              eventId: `subscribe:${subscription.id}`,
+              externalReference: subscription.id,
+              eventSourceUrl: sourceUrl,
+              email,
+              eventTime: event.created,
+              customData: { ...paidContent(planKey, value, currency), predicted_ltv: value },
+            })
+          }
+        }
         if (
           ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'invoice.paid'].includes(event.type) &&
           (subscription.status === 'active' || subscription.status === 'trialing')
@@ -71,6 +121,17 @@ export async function POST(request: Request) {
           if (event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded') invoicePatch.last_invoice_paid_at = new Date(event.created * 1000).toISOString()
           if (event.type === 'invoice.payment_failed') invoicePatch.last_payment_failed_at = new Date(event.created * 1000).toISOString()
           await db.from('account_billing').update(invoicePatch).eq('account_id', accountId)
+          if ((event.type === 'invoice.paid' || event.type === 'invoice.payment_succeeded') && invoice.status === 'paid' && invoice.amount_paid > 0) {
+            await sendMetaConversion(db, {
+              eventName: 'Purchase',
+              eventId: `purchase:${invoice.id}`,
+              externalReference: invoice.id,
+              eventSourceUrl: sourceUrl,
+              email,
+              eventTime: event.created,
+              customData: paidContent(planKey, invoice.amount_paid / 100, invoice.currency),
+            })
+          }
         }
         if (event.type === 'checkout.session.completed' && subscription.trial_start) {
           const { error: trialError } = await db.from('account_billing').update({ trial_used_at: new Date(event.created * 1000).toISOString() }).eq('account_id', accountId).is('trial_used_at', null)

@@ -14,7 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
 import { BILLING_PLANS } from '@/lib/billing/catalog';
-import { trackMetaInitiateCheckout } from '@/lib/analytics/meta-pixel';
+import { trackContact, trackMetaInitiateCheckout } from '@/lib/analytics/meta-pixel';
 import { PLAN_DISPLAY } from '@/config/plans';
 import type {
   AccountEntitlements,
@@ -182,7 +182,7 @@ export function PricingClient() {
                     salesUrl ? (
                       <Button
                         render={
-                          <a href={salesUrl} target="_blank" rel="noreferrer" />
+                          <a href={salesUrl} target="_blank" rel="noreferrer" onClick={() => trackContact('sales')} />
                         }
                         className="w-full"
                         variant="outline"

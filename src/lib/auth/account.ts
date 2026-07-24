@@ -113,6 +113,12 @@ export async function getCurrentAccount(): Promise<AccountContext> {
   if (userErr || !user) {
     throw new UnauthorizedError();
   }
+  if (!user.email_confirmed_at) {
+    console.warn("[getCurrentAccount] tentativa de acesso com e-mail pendente", {
+      userId: user.id,
+    });
+    throw new ForbiddenError("Confirme seu e-mail antes de acessar o Aunivo.");
+  }
 
   const { data, error } = await supabase
     .from("profiles")

@@ -3,9 +3,11 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { Inter } from 'next/font/google';
 import Script from 'next/script';
+import { Suspense } from 'react';
 import './globals.css';
 import { ThemeProvider } from '@/hooks/use-theme';
 import { ThemedToaster } from '@/components/themed-toaster';
+import { MetaPixel } from '@/components/analytics/meta-pixel';
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -124,6 +126,9 @@ export default async function RootLayout({
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
             {children}
+            <Suspense fallback={null}>
+              <MetaPixel />
+            </Suspense>
             <ThemedToaster />
           </ThemeProvider>
         </NextIntlClientProvider>

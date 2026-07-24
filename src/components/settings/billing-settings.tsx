@@ -22,6 +22,7 @@ import type {
   BillingStateRow,
   PlanKey,
 } from '@/lib/billing/types';
+import { trackContact, trackMetaInitiateCheckout } from '@/lib/analytics/meta-pixel';
 
 interface State {
   entitlements: AccountEntitlements;
@@ -63,9 +64,13 @@ export function BillingSettings() {
         headers: { 'content-type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined,
       });
-      const data = (await response.json()) as { url?: string; error?: string };
+      const data = (await response.json()) as { url?: string; error?: string; portal?: boolean; reused?: boolean };
       if (!response.ok || !data.url)
         throw new Error(data.error ?? t('errors.action'));
+      const planKey = body && 'planKey' in body ? (body as { planKey?: unknown }).planKey : null;
+      if (path === '/api/billing/checkout' && !data.portal && !data.reused && (planKey === 'free' || planKey === 'pro')) {
+        trackMetaInitiateCheckout(planKey);
+      }
       window.location.assign(data.url);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('errors.action'));
@@ -244,7 +249,7 @@ export function BillingSettings() {
                   salesUrl ? (
                     <Button
                       render={
-                        <a href={salesUrl} target="_blank" rel="noreferrer" />
+                        <a href={salesUrl} target="_blank" rel="noreferrer" onClick={() => trackContact('sales')} />
                       }
                       className="w-full"
                       variant="outline"

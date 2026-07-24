@@ -4,9 +4,11 @@ import { useCallback, useEffect } from 'react'
 import Script from 'next/script'
 import { usePathname, useSearchParams } from 'next/navigation'
 
-import { trackMetaEvent } from '@/lib/analytics/meta-pixel'
+import { trackMetaEvent, trackViewContent } from '@/lib/analytics/meta-pixel'
 
-const SENSITIVE_QUERY_PARAMETERS = new Set(['invite', 'session_id'])
+const SENSITIVE_QUERY_PARAMETERS = new Set([
+  'invite', 'session_id', 'token', 'code', 'email',
+])
 
 function isSafePublicUrl(searchParams: URLSearchParams): boolean {
   return !Array.from(SENSITIVE_QUERY_PARAMETERS).some((key) =>
@@ -31,10 +33,10 @@ export function MetaPixel() {
     }
 
     if (
-      pathname === '/planos' &&
+      (pathname === '/' || pathname === '/planos') &&
       window.__aunivoMetaPixelLastViewContent !== url
     ) {
-      trackMetaEvent('ViewContent', { content_name: 'Planos Aunivo' })
+      trackViewContent(pathname === '/' ? 'landing' : 'pricing')
       window.__aunivoMetaPixelLastViewContent = url
     }
   }, [pathname, pixelId, queryString, url])

@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { isV1DisabledApi, isV1DisabledPage } from '@/config/features'
 import { getEffectiveAccountAccess } from '@/lib/billing/access'
+import { supabaseAdmin } from '@/lib/flows/admin-client'
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -79,12 +80,22 @@ export async function proxy(request: NextRequest) {
   // they can accept the invitation in one click. Without this,
   // a forwarded invite link to someone who's already signed in
   // would silently drop them on /dashboard.
-  if (user && (
+  const isAuthPage = (
     request.nextUrl.pathname === '/login' ||
     request.nextUrl.pathname === '/signup' ||
     request.nextUrl.pathname === '/cadastro' ||
     request.nextUrl.pathname === '/forgot-password'
-  )) {
+  )
+
+  if (user && !user.email_confirmed_at && request.nextUrl.pathname !== '/auth/verificar-email') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/verificar-email'
+    url.search = ''
+    console.warn('[proxy] tentativa de acesso pendente', { userId: user.id, pathname: request.nextUrl.pathname })
+    return withRefreshedCookies(NextResponse.redirect(url))
+  }
+
+  if (user && isAuthPage) {
     const url = request.nextUrl.clone()
     const inviteToken = request.nextUrl.searchParams.get('invite')
     if (
@@ -130,7 +141,27 @@ export async function proxy(request: NextRequest) {
     (request.nextUrl.pathname.startsWith('/api/whatsapp/') && !request.nextUrl.pathname.includes('/webhook'))
 
   if (user && ((isProtectedPage && !isBillingRecoveryPage) || isGatedApi)) {
-    const { data: profile } = await supabase.from('profiles').select('account_id').eq('user_id', user.id).maybeSingle()
+    let { data: profile } = await supabase.from('profiles').select('account_id').eq('user_id', user.id).maybeSingle()
+    if (!profile?.account_id && user.email_confirmed_at) {
+      const db = supabaseAdmin()
+      const { data: pending } = await db.from('trial_signups')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .eq('status', 'email_confirmation_pending')
+        .maybeSingle()
+      if (pending?.id) {
+        const { data: activated, error: activationError } = await db.rpc('activate_confirmed_self_service_trial', {
+          target_signup_id: pending.id,
+          target_user_id: user.id,
+        })
+        if (!activationError) {
+          const result = Array.isArray(activated) ? activated[0] : activated
+          profile = result?.account_id ? { account_id: result.account_id } : null
+        } else {
+          console.error('[proxy] erro ao finalizar ativação confirmada', { userId: user.id, code: activationError.code })
+        }
+      }
+    }
     const access = profile?.account_id
       ? await getEffectiveAccountAccess(profile.account_id)
       : null

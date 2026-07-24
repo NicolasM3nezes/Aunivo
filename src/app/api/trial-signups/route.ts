@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { LEGAL_DOCUMENTS } from '@/config/legal'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
@@ -91,11 +92,14 @@ async function capture(request: NextRequest, body: Record<string, unknown>) {
   const { data: existing, error: existingError } = await db.from('trial_signups').select('id,session_token_hash,status,auth_user_id').eq('normalized_email', email).maybeSingle()
   if (existingError) throw new Error(existingError.message)
   if (existing && existing.id !== active?.id) {
+    const pending = existing.status === 'email_confirmation_pending'
     return jsonError(
-      existing.auth_user_id || ['trial_active', 'converted'].includes(existing.status)
-        ? 'Este e-mail já possui uma conta. Entre para continuar.'
-        : 'Já existe um cadastro com este e-mail. Continue no navegador em que ele foi iniciado.',
-      409, existing.auth_user_id ? 'EXISTING_USER' : 'SIGNUP_IN_PROGRESS',
+      pending
+        ? 'Seu cadastro já foi iniciado. Confirme o e-mail enviado para ativar sua conta.'
+        : existing.auth_user_id || ['trial_active', 'converted'].includes(existing.status)
+          ? 'Este e-mail já possui uma conta. Entre para continuar.'
+          : 'Já existe um cadastro com este e-mail. Continue no navegador em que ele foi iniciado.',
+      409, pending ? 'SIGNUP_PENDING' : existing.auth_user_id ? 'EXISTING_USER' : 'SIGNUP_IN_PROGRESS',
     )
   }
 
@@ -161,45 +165,71 @@ async function createAccount(request: NextRequest, body: Record<string, unknown>
   let userId = signup.auth_user_id as string | null
 
   if (!userId) {
-    const { data, error } = await db.auth.admin.createUser({
+    console.info('[trial-signup] cadastro iniciado', { signupId: signup.id })
+    const auth = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
+    )
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/+$/, '')
+    const { data, error } = await auth.auth.signUp({
       email: signup.normalized_email,
       password: body.password as string,
-      email_confirm: true,
-      user_metadata: {
-        full_name: signup.full_name,
-        legal_terms_accepted: true, legal_privacy_accepted: true,
-        terms_version: LEGAL_DOCUMENTS.termsOfUse.version,
-        privacy_version: LEGAL_DOCUMENTS.privacyPolicy.version,
+      options: {
+        emailRedirectTo: `${appUrl}/auth/callback?next=/dashboard`,
+        data: {
+          full_name: signup.full_name,
+          acquisition_pending: true,
+          trial_signup_id: signup.id,
+          company_name: signup.company_name,
+          legal_terms_accepted: true, legal_privacy_accepted: true,
+          terms_version: LEGAL_DOCUMENTS.termsOfUse.version,
+          privacy_version: LEGAL_DOCUMENTS.privacyPolicy.version,
+        },
       },
     })
     if (error || !data.user) {
-      if (error?.message.toLowerCase().includes('already')) return jsonError('Este e-mail já possui uma conta. Entre para continuar.', 409, 'EXISTING_USER')
+      if (error?.message.toLowerCase().includes('already')) return jsonError('Seu cadastro já foi iniciado. Confirme o e-mail enviado para ativar sua conta.', 409, 'SIGNUP_PENDING')
       throw new Error(error?.message ?? 'Auth não retornou o usuário criado')
+    }
+    if (data.user.identities?.length === 0) {
+      return jsonError('Este e-mail já possui uma conta no Aunivo. Entre com sua senha para continuar.', 409, 'EXISTING_USER')
+    }
+    if (data.session || data.user.email_confirmed_at) {
+      console.error('[trial-signup] confirmação de e-mail desativada no Supabase', { signupId: signup.id })
+      await db.auth.admin.deleteUser(data.user.id)
+      return jsonError('Não foi possível iniciar a confirmação por e-mail. Tente novamente mais tarde.', 503)
     }
     userId = data.user.id
     const { error: linkError } = await db.from('trial_signups').update({
-      auth_user_id: userId, status: 'account_created', account_created_at: now,
+      auth_user_id: userId, status: 'email_confirmation_pending',
       marketing_opt_in: marketingOptIn,
       marketing_consent_at: marketingOptIn ? now : null,
       marketing_consent_version: marketingOptIn ? MARKETING_CONSENT_VERSION : null,
       terms_accepted_at: now, terms_version: LEGAL_DOCUMENTS.termsOfUse.version,
       privacy_policy_version: LEGAL_DOCUMENTS.privacyPolicy.version,
     }).eq('id', signup.id)
-    if (linkError) throw new Error(linkError.message)
+    if (linkError) {
+      await db.auth.admin.deleteUser(userId)
+      throw new Error(linkError.message)
+    }
+    await db.from('trial_signup_events').upsert(
+      { trial_signup_id: signup.id, event_type: 'email_confirmation_requested' },
+      { onConflict: 'trial_signup_id,event_type', ignoreDuplicates: true },
+    )
+    console.info('[trial-signup] usuário pendente criado; confirmação solicitada', { signupId: signup.id, userId })
   } else {
-    const { error } = await db.auth.admin.updateUserById(userId, { password: body.password as string })
-    if (error) throw new Error(error.message)
+    console.info('[trial-signup] tentativa duplicada de cadastro pendente', { signupId: signup.id, userId })
+    return NextResponse.json({
+      success: true,
+      pending: true,
+      message: 'Seu cadastro já foi iniciado. Confirme o e-mail enviado para ativar sua conta.',
+    })
   }
 
-  const { data: profile, error: profileError } = await db.from('profiles').select('account_id').eq('user_id', userId).single()
-  if (profileError || !profile?.account_id) throw new Error(`A conta foi criada, mas a organização ainda não está disponível: ${profileError?.message ?? 'sem organização'}`)
-  const { data: activation, error: activationError } = await db.rpc('activate_self_service_trial', {
-    target_signup_id: signup.id, target_user_id: userId, target_account_id: profile.account_id,
-  })
-  if (activationError) throw new Error(`Não foi possível ativar o teste: ${activationError.message}`)
-
   return NextResponse.json({
-    success: true, trialEndsAt: Array.isArray(activation) ? activation[0]?.trial_ends_at : null,
-    message: 'Sua conta foi criada com 14 dias do Aunivo Pro.',
+    success: true,
+    pending: true,
+    message: 'Enviamos um e-mail de confirmação.',
   })
 }

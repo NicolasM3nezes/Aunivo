@@ -52,7 +52,11 @@ function makeClient(opts: {
       auth: {
         getUser: () =>
           Promise.resolve({
-            data: { user: opts.user },
+            data: {
+              user: opts.user
+                ? { ...opts.user, email_confirmed_at: "2026-07-24T00:00:00.000Z" }
+                : null,
+            },
             error: opts.userErr ?? null,
           }),
       },

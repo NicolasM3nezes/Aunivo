@@ -8,7 +8,7 @@ import { NextRequest } from "next/server";
 //                      i.e. the freshly *rotated* auth token. The whole point
 //                      of the test is that these must survive onto whatever
 //                      response the middleware returns — including redirects.
-let mockUser: { id: string } | null = null;
+let mockUser: { id: string; email_confirmed_at: string | null } | null = null;
 let mockSubscription: { subscription_status: string; grace_period_ends_at: string | null } | null = null;
 let mockAccessActive = true;
 let refreshedCookies: Array<{
@@ -77,7 +77,7 @@ const ROTATED = {
 
 describe("middleware — refreshed auth cookies survive redirects", () => {
   it("carries the rotated token when redirecting a signed-in user off /login", async () => {
-    mockUser = { id: "user-1" };
+    mockUser = { id: "user-1", email_confirmed_at: "2026-07-24T00:00:00.000Z" };
     refreshedCookies = [ROTATED];
 
     const res = await proxy(
@@ -109,7 +109,7 @@ describe("middleware — refreshed auth cookies survive redirects", () => {
   });
 
   it("redirects a signed-in user with an invite token to /join/<token>", async () => {
-    mockUser = { id: "user-1" };
+    mockUser = { id: "user-1", email_confirmed_at: "2026-07-24T00:00:00.000Z" };
     refreshedCookies = [ROTATED];
 
     const res = await proxy(
@@ -121,7 +121,7 @@ describe("middleware — refreshed auth cookies survive redirects", () => {
   });
 
   it("passes through (no redirect) for a signed-in user on a protected page", async () => {
-    mockUser = { id: "user-1" };
+    mockUser = { id: "user-1", email_confirmed_at: "2026-07-24T00:00:00.000Z" };
     refreshedCookies = [ROTATED];
 
     const res = await proxy(
@@ -134,7 +134,7 @@ describe("middleware — refreshed auth cookies survive redirects", () => {
   });
 
   it("redirects an account without a valid subscription to the plans page", async () => {
-    mockUser = { id: "user-1" };
+    mockUser = { id: "user-1", email_confirmed_at: "2026-07-24T00:00:00.000Z" };
     mockSubscription = { subscription_status: 'free', grace_period_ends_at: null };
     mockAccessActive = false;
 
@@ -144,11 +144,19 @@ describe("middleware — refreshed auth cookies survive redirects", () => {
   });
 
   it("keeps billing settings reachable without a valid subscription", async () => {
-    mockUser = { id: "user-1" };
+    mockUser = { id: "user-1", email_confirmed_at: "2026-07-24T00:00:00.000Z" };
     mockSubscription = null;
 
     const res = await proxy(new NextRequest("https://app.test/settings?tab=billing"));
 
     expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("bloqueia uma sessão cujo e-mail ainda não foi confirmado", async () => {
+    mockUser = { id: "pending-user", email_confirmed_at: null };
+
+    const res = await proxy(new NextRequest("https://app.test/dashboard"));
+
+    expect(res.headers.get("location")).toContain("/auth/verificar-email");
   });
 });
