@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { paidPlanParameters, trackContact, trackInitiateCheckout, trackLead, trackStartTrial } from './meta-events'
+import { paidPlanParameters, trackCompleteRegistration, trackContact, trackInitiateCheckout, trackLead, trackStartTrial, trackViewContent } from './meta-events'
 import { META_ANALYTICS_CONFIG, metaStartTrialParameters, validateMetaMonetaryEvent } from './meta-config'
 
 afterEach(() => {
@@ -19,8 +19,6 @@ describe('Meta Pixel events', () => {
     expect(fbq).toHaveBeenCalledWith('track', 'Lead', {
       content_name: 'Teste gratuito Aunivo',
       content_category: 'SaaS Lead',
-      value: 0,
-      currency: 'BRL',
     }, expect.objectContaining({ eventID: expect.stringMatching(/^lead:/) }))
     expect(JSON.stringify(fbq.mock.calls)).not.toMatch(/email|phone|password/i)
   })
@@ -28,6 +26,26 @@ describe('Meta Pixel events', () => {
   it('uses centralized numeric prices for checkout', () => {
     expect(paidPlanParameters('free')).toMatchObject({ value: 12.9, currency: 'BRL', content_ids: ['aunivo-basic'] })
     expect(paidPlanParameters('pro')).toMatchObject({ value: 39.9, currency: 'BRL', content_ids: ['aunivo-pro'] })
+  })
+
+  it('uses canonical plan ids for pricing ViewContent', () => {
+    const fbq = vi.fn()
+    vi.stubGlobal('window', { fbq })
+    trackViewContent('pricing')
+    expect(fbq).toHaveBeenCalledWith('track', 'ViewContent', expect.objectContaining({
+      content_ids: ['aunivo-basic', 'aunivo-pro'],
+      content_type: 'product_group',
+    }), undefined)
+  })
+
+  it('uses a positive numeric reference value for CompleteRegistration', () => {
+    const fbq = vi.fn()
+    vi.stubGlobal('window', { fbq })
+    trackCompleteRegistration('registration:user-1')
+    expect(fbq).toHaveBeenCalledWith('track', 'CompleteRegistration', expect.objectContaining({
+      value: 39.9,
+      currency: 'BRL',
+    }), { eventID: 'registration:user-1' })
   })
 
   it('respects an explicit marketing denial', () => {

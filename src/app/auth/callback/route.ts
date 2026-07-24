@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { createClient } from '@/lib/supabase/server'
 import { sendMetaConversion, sendMetaStartTrial } from '@/lib/analytics/meta-conversions'
+import { metaCompleteRegistrationParameters } from '@/lib/analytics/meta-config'
 
 export const runtime = 'nodejs'
 
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
         externalReference: signup.id,
         eventSourceUrl: sourceUrl,
         email: user.email,
-        customData: { content_name: 'Cadastro Aunivo', status: 'completed', value: 0, currency: 'BRL' },
+        customData: metaCompleteRegistrationParameters(),
       }),
       sendMetaStartTrial(db, {
         trialId: signup.id,

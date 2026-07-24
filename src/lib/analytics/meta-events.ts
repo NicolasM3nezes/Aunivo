@@ -1,6 +1,6 @@
 import { BILLING_PLANS } from '@/lib/billing/catalog'
 import type { MetaEventOptions, MetaEventParameters, MetaStandardEvent } from './meta-types'
-import { metaStartTrialParameters, META_ANALYTICS_CONFIG, validateMetaMonetaryEvent } from './meta-config'
+import { metaCompleteRegistrationParameters, metaStartTrialParameters, META_ANALYTICS_CONFIG, validateMetaMonetaryEvent } from './meta-config'
 
 export function metaEventId(prefix: string): string {
   const id = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -35,15 +35,14 @@ const content = (name: string, category: string, ids: string[], type = 'product'
 export const trackViewContent = (kind: 'landing' | 'pricing') =>
   trackMetaEvent('ViewContent', kind === 'landing'
     ? content('Landing Page Aunivo', 'SaaS CRM', ['aunivo'])
-    : content('Planos Aunivo', 'Pricing', ['basic', 'pro'], 'product_group'))
+    : content('Planos Aunivo', 'Pricing', ['aunivo-basic', 'aunivo-pro'], 'product_group'))
 
 export const trackLead = () => trackMetaEvent('Lead', {
-  content_name: 'Teste gratuito Aunivo', content_category: 'SaaS Lead', value: 0, currency: 'BRL',
+  content_name: 'Teste gratuito Aunivo', content_category: 'SaaS Lead',
 }, { eventID: metaEventId('lead') })
 
-export const trackCompleteRegistration = (eventID: string) => trackMetaEvent('CompleteRegistration', {
-  content_name: 'Cadastro Aunivo', status: 'completed', currency: 'BRL', value: 0,
-}, { eventID })
+export const trackCompleteRegistration = (eventID: string) =>
+  trackMetaEvent('CompleteRegistration', metaCompleteRegistrationParameters(), { eventID })
 
 export function trackStartTrial(eventID: string): void {
   if (!validateMetaMonetaryEvent(META_ANALYTICS_CONFIG.trial.value, META_ANALYTICS_CONFIG.currency)) return

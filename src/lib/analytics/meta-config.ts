@@ -26,3 +26,13 @@ export function metaStartTrialParameters() {
     content_type: trial.contentType,
   }
 }
+
+export function metaCompleteRegistrationParameters() {
+  const { trial, currency } = META_ANALYTICS_CONFIG
+  return {
+    content_name: 'Cadastro Aunivo',
+    status: 'completed',
+    value: trial.value,
+    currency,
+  }
+}

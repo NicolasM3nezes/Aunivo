@@ -45,7 +45,7 @@ export async function sendMetaConversion(db: SupabaseClient, event: ServerConver
     }).eq('provider', 'meta').eq('event_name', event.eventName).eq('external_reference', event.externalReference)
     if (retryError) return 'failed'
   }
-  if (claimError) {
+  if (claimError && claimError.code !== '23505') {
     console.warn('[analytics:meta-server] falha ao reservar evento', { eventName: event.eventName, code: claimError.code })
     return 'failed'
   }

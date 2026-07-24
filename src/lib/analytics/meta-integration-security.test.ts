@@ -8,12 +8,14 @@ const signup = read('src/components/public/trial-signup-form.tsx')
 const callback = read('src/app/auth/callback/route.ts')
 const webhook = read('src/app/api/billing/webhook/route.ts')
 const migration = read('supabase/migrations/053_meta_conversion_idempotency.sql')
+const conversions = read('src/lib/analytics/meta-conversions.ts')
 
 describe('Meta analytics integration boundaries', () => {
   it('keeps a single Pixel bootstrap and route-deduplicated PageView', () => {
     expect(pixel.match(/id="meta-pixel"/g)).toHaveLength(1)
     expect(pixel).toContain('__aunivoMetaPixelLastPageView')
     expect(pixel).toContain("trackMetaEvent('PageView')")
+    expect(pixel).toContain('const routeKey = pathname')
   })
 
   it('does not complete registration or start trial in the landing form', () => {
@@ -24,12 +26,17 @@ describe('Meta analytics integration boundaries', () => {
 
   it('uses the centralized positive BRL StartTrial payload on the server', () => {
     const config = read('src/lib/analytics/meta-config.ts')
-    const conversions = read('src/lib/analytics/meta-conversions.ts')
     expect(config).toContain('value: 39.90')
     expect(config).toContain("currency: 'BRL'")
     expect(conversions).toContain('customData: metaStartTrialParameters()')
     expect(conversions).toContain('eventId = `trial:${input.trialId}`')
     expect(callback).not.toMatch(/StartTrial[\s\S]{0,300}value:\s*0/)
+  })
+
+  it('allows a failed CAPI delivery to be retried without bypassing idempotency', () => {
+    expect(conversions).toContain("prior?.processing_status !== 'failed'")
+    expect(conversions).toContain("claimError && claimError.code !== '23505'")
+    expect(conversions).toContain("processing_status: 'processing'")
   })
 
   it('sources paid conversions from trusted Stripe objects', () => {

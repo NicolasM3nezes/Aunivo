@@ -21,25 +21,26 @@ export function MetaPixel() {
   const searchParams = useSearchParams()
   const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim()
   const queryString = searchParams.toString()
-  const url = queryString ? `${pathname}?${queryString}` : pathname
+  // Search-param changes (UTMs, tabs, filters) are not route views.
+  const routeKey = pathname
 
   const trackCurrentPage = useCallback(() => {
     if (!pixelId || !isSafePublicUrl(new URLSearchParams(queryString))) return
     if (typeof window.fbq !== 'function') return
 
-    if (window.__aunivoMetaPixelLastPageView !== url) {
+    if (window.__aunivoMetaPixelLastPageView !== routeKey) {
       trackMetaEvent('PageView')
-      window.__aunivoMetaPixelLastPageView = url
+      window.__aunivoMetaPixelLastPageView = routeKey
     }
 
     if (
       (pathname === '/' || pathname === '/planos') &&
-      window.__aunivoMetaPixelLastViewContent !== url
+      window.__aunivoMetaPixelLastViewContent !== routeKey
     ) {
       trackViewContent(pathname === '/' ? 'landing' : 'pricing')
-      window.__aunivoMetaPixelLastViewContent = url
+      window.__aunivoMetaPixelLastViewContent = routeKey
     }
-  }, [pathname, pixelId, queryString, url])
+  }, [pathname, pixelId, queryString, routeKey])
 
   useEffect(() => {
     trackCurrentPage()
