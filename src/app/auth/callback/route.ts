@@ -13,13 +13,23 @@ function redirectTo(request: NextRequest, pathname: string, error?: string) {
   return NextResponse.redirect(url)
 }
 
+const RECOVERY_PATH = '/auth/redefinir-senha'
+
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const requestedNext = request.nextUrl.searchParams.get('next')
   const safeNext = requestedNext?.startsWith('/') && !requestedNext.startsWith('//')
     ? requestedNext
     : '/dashboard'
-  if (!code) return redirectTo(request, '/auth/verificar-email', 'Link de confirmação inválido ou expirado.')
+  if (!code) {
+    return redirectTo(
+      request,
+      safeNext === RECOVERY_PATH ? RECOVERY_PATH : '/auth/verificar-email',
+      safeNext === RECOVERY_PATH
+        ? 'Este link de recuperação é inválido ou expirou.'
+        : 'Link de confirmação inválido ou expirado.',
+    )
+  }
 
   try {
     const supabase = await createClient()
@@ -32,6 +42,27 @@ export async function GET(request: NextRequest) {
     }
 
     const db = supabaseAdmin()
+    if (safeNext === RECOVERY_PATH) {
+      const token = randomBytes(32).toString('base64url')
+      const { error: recoveryError } = await db.from('password_recovery_sessions').insert({
+        user_id: user.id,
+        token_hash: createHash('sha256').update(token).digest('hex'),
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      })
+      if (recoveryError) throw recoveryError
+
+      const response = redirectTo(request, RECOVERY_PATH)
+      response.cookies.set('aunivo_password_recovery', token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 15 * 60,
+      })
+      console.info('[auth-callback] sessão de recuperação validada', { userId: user.id })
+      return response
+    }
+
     const { data: signup, error: signupError } = await db
       .from('trial_signups')
       .select('id,normalized_email,status')
@@ -81,6 +112,13 @@ export async function GET(request: NextRequest) {
     console.error('[auth-callback] erro de ativação', {
       message: error instanceof Error ? error.message : 'unknown',
     })
-    return redirectTo(request, '/auth/verificar-email', 'Seu e-mail foi confirmado, mas não conseguimos finalizar a ativação. Tente novamente.')
+    return redirectTo(
+      request,
+      safeNext === RECOVERY_PATH ? RECOVERY_PATH : '/auth/verificar-email',
+      safeNext === RECOVERY_PATH
+        ? 'Não conseguimos validar este link. Solicite uma nova recuperação.'
+        : 'Seu e-mail foi confirmado, mas não conseguimos finalizar a ativação. Tente novamente.',
+    )
   }
 }
+import { createHash, randomBytes } from 'node:crypto'

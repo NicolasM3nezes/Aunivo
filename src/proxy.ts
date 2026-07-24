@@ -6,6 +6,19 @@ import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { sendMetaStartTrial } from '@/lib/analytics/meta-conversions'
 
 export async function proxy(request: NextRequest) {
+  // Supabase PKCE returns the recovery code to the public reset URL. Route the
+  // one request through the shared code exchanger without exposing a separate
+  // recovery callback URL; the callback then redirects back to the clean page.
+  if (
+    request.nextUrl.pathname === '/auth/redefinir-senha' &&
+    request.nextUrl.searchParams.has('code')
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/callback'
+    url.searchParams.set('next', '/auth/redefinir-senha')
+    return NextResponse.rewrite(url)
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
